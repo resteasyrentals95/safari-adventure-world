@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Safari Adventure World</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Trebuchet MS', 'Comic Sans MS', sans-serif; }
+  canvas { display: block; }
+
+  #titleScreen {
+    position: fixed; inset: 0; z-index: 50;
+    background: linear-gradient(180deg, #ff9d3f 0%, #ffcf6e 45%, #e8b04b 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 20px;
+  }
+  #titleScreen h1 {
+    font-size: clamp(34px, 7vw, 64px); color: #5a2d00;
+    text-shadow: 0 3px 0 #ffe9b3, 0 6px 12px rgba(90,45,0,.35); margin-bottom: 8px;
+  }
+  #titleScreen .animals { font-size: clamp(28px, 5vw, 44px); margin: 8px 0 18px; }
+  #titleScreen p {
+    max-width: 560px; background: rgba(255,255,255,.75); border-radius: 16px;
+    padding: 14px 20px; font-size: clamp(15px, 2.4vw, 18px); color: #4a3010; line-height: 1.55;
+  }
+  #startBtn {
+    margin-top: 22px; font-size: clamp(20px, 3.5vw, 28px); font-weight: bold;
+    padding: 14px 46px; border: none; border-radius: 40px; cursor: pointer;
+    background: #2e8b3d; color: #fff; box-shadow: 0 6px 0 #1d5c28, 0 10px 18px rgba(0,0,0,.25);
+    transition: transform .1s;
+  }
+  #startBtn:active { transform: translateY(4px); box-shadow: 0 2px 0 #1d5c28; }
+
+  #hud { position: fixed; top: 10px; left: 10px; z-index: 20; display: flex; gap: 8px; align-items: center; }
+  .hudChip {
+    background: rgba(60,35,5,.72); color: #ffe9b3; border-radius: 20px;
+    padding: 7px 14px; font-size: 14px; font-weight: bold;
+  }
+  #voiceBtn {
+    border: none; font-size: 18px; cursor: pointer; background: rgba(60,35,5,.72);
+    color: #fff; border-radius: 50%; width: 38px; height: 38px;
+  }
+  #voiceBtn.muted { opacity: .55; }
+
+  #prompt {
+    position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%); z-index: 20;
+    background: #2e8b3d; color: #fff; font-weight: bold; font-size: 17px;
+    padding: 10px 22px; border-radius: 26px; display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3); white-space: nowrap;
+  }
+  #keysHelp {
+    position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 20;
+    color: rgba(255,255,255,.92); font-size: 13px; text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  }
+
+  #truckPanel {
+    position: fixed; top: 10px; right: 10px; z-index: 20; display: none;
+    flex-direction: column; gap: 6px; align-items: flex-end;
+  }
+  #truckPanel button {
+    border: none; border-radius: 24px; padding: 10px 18px; font-size: 16px; font-weight: bold;
+    cursor: pointer; background: #d2691e; color: #fff; box-shadow: 0 4px 0 #8f4512;
+  }
+  #truckPanel button:active { transform: translateY(3px); box-shadow: 0 1px 0 #8f4512; }
+  #truckPanel .stopName { background: rgba(60,35,5,.72); color: #ffe9b3; border-radius: 16px; padding: 6px 12px; font-size: 13px; font-weight: bold; }
+
+  #dialog {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    align-items: flex-end; justify-content: center; background: rgba(0,0,0,.35); padding: 12px;
+  }
+  #dialogBox {
+    width: min(680px, 100%); max-height: 82vh; overflow-y: auto;
+    background: #fff8ea; border: 4px solid #b5722a; border-radius: 22px;
+    padding: 18px 20px 20px; box-shadow: 0 12px 40px rgba(0,0,0,.4);
+  }
+  #dialogHead { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  #dialogEmoji {
+    font-size: 46px; width: 74px; height: 74px; flex: 0 0 74px; display: flex;
+    align-items: center; justify-content: center; background: #ffe4b0;
+    border-radius: 50%; border: 3px solid #d99a3d;
+  }
+  #dialogEmoji.speaking { animation: bounce .45s infinite alternate; }
+  @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.12) rotate(-4deg); } }
+  #dialogName { font-size: 24px; color: #6b3d00; }
+  #dialogSub { font-size: 14px; color: #a3702b; font-weight: bold; }
+  #dialogClose {
+    margin-left: auto; border: none; background: #c94f4f; color: #fff; font-size: 18px;
+    width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-weight: bold; flex: 0 0 40px;
+  }
+  #dialogText {
+    background: #fff; border: 2px solid #e8c98e; border-radius: 14px;
+    padding: 14px 16px; font-size: 17px; line-height: 1.55; color: #3d2a10; min-height: 64px;
+  }
+  #dialogFact {
+    margin-top: 8px; font-size: 14px; font-weight: bold; color: #1d6e2e;
+    background: #e3f5e6; border-radius: 10px; padding: 7px 12px; display: none;
+  }
+  #dialogQuestions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  #dialogQuestions button {
+    border: none; background: #f4a83d; color: #5a2d00; font-weight: bold; font-size: 15px;
+    padding: 10px 14px; border-radius: 20px; cursor: pointer; box-shadow: 0 3px 0 #c07d1c;
+  }
+  #dialogQuestions button:active { transform: translateY(2px); box-shadow: 0 1px 0 #c07d1c; }
+  #dialogQuestions button.asked { background: #e6d3ae; box-shadow: 0 3px 0 #bda87e; }
+
+  #touchPad { position: fixed; bottom: 16px; left: 16px; z-index: 25; display: none; }
+  #touchPad .row { display: flex; justify-content: center; }
+  #touchPad button {
+    width: 58px; height: 58px; margin: 3px; font-size: 24px; border: none; border-radius: 14px;
+    background: rgba(60,35,5,.55); color: #fff; touch-action: none;
+  }
+  #talkBtn {
+    position: fixed; bottom: 30px; right: 20px; z-index: 25; display: none;
+    width: 86px; height: 86px; border-radius: 50%; border: none; font-size: 15px; font-weight: bold;
+    background: #2e8b3d; color: #fff; box-shadow: 0 5px 14px rgba(0,0,0,.35); touch-action: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="titleScreen">
+  <h1>&#x1F98F; Safari Adventure World &#x1F981;</h1>
+  <div class="animals">&#x1F406;&#x1F418;&#x1F40A;&#x1F412;&#x1F992;&#x1F993;&#x1F403;&#x1F405;&#x1F99B;&#x1F9A6;</div>
+  <p>
+    Welcome, Junior Ranger! Explore the savanna and meet <b>12 amazing animals</b>.
+    Walk right up to any animal and <b>talk to it</b> — every animal answers your questions
+    with real wild facts! Or hop in the <b>safari truck</b> and let it drive you on a tour
+    from animal to animal.<br><br>
+    <b>Arrow keys / WASD</b> to walk &bull; <b>E</b> to talk or hop in the truck &bull; <b>N</b> for the truck's next stop
+  </p>
+  <button id="startBtn">&#x1F699; Start the Safari!</button>
+</div>
+
+<div id="hud" style="display:none">
+  <span class="hudChip" id="rangerChip">&#x1F9ED; Junior Ranger</span>
+  <button id="voiceBtn" title="Voices on/off">&#x1F50A;</button>
+</div>
+
+<div id="prompt"></div>
+<div id="keysHelp" style="display:none">Arrow keys / WASD to move &bull; E to talk or use the truck &bull; N = next safari stop</div>
+
+<div id="truckPanel">
+  <span class="stopName" id="stopName"></span>
+  <button id="nextStopBtn">&#x1F699; Next Animal &#x25B6;</button>
+  <button id="hopOutBtn">&#x1F6B6; Hop Out</button>
+</div>
+
+<div id="dialog">
+  <div id="dialogBox">
+    <div id="dialogHead">
+      <div id="dialogEmoji"></div>
+      <div>
+        <div id="dialogName"></div>
+        <div id="dialogSub"></div>
+      </div>
+      <button id="dialogClose">&#x2715;</button>
+    </div>
+    <div id="dialogText"></div>
+    <div id="dialogFact"></div>
+    <div id="dialogQuestions"></div>
+  </div>
+</div>
+
+<div id="touchPad">
+  <div class="row"><button data-k="ArrowUp">&#x25B2;</button></div>
+  <div class="row">
+    <button data-k="ArrowLeft">&#x25C0;</button>
+    <button data-k="ArrowDown">&#x25BC;</button>
+    <button data-k="ArrowRight">&#x25B6;</button>
+  </div>
+</div>
+<button id="talkBtn">Talk!</button>
+
+<script src="animals.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================ RENDERER / SCENE ============================ */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9ed9f2);
+scene.fog = new THREE.Fog(0xf2d8a0, 110, 300);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
+
+scene.add(new THREE.HemisphereLight(0xfff6e0, 0xb9a15e, 0.95));
+const sun = new THREE.DirectionalLight(0xfff1c9, 1.15);
+sun.position.set(60, 90, 40);
+scene.add(sun);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ============================ HELPERS ============================ */
+const mat = (color, opts = {}) => new THREE.MeshLambertMaterial({ color, ...opts });
+const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+const cyl = (rt, rb, h, m, seg = 10) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
+const sph = (r, m, w = 12, h = 10) => new THREE.Mesh(new THREE.SphereGeometry(r, w, h), m);
+const cone = (r, h, m, seg = 10) => new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), m);
+
+function patternMaterial(type, base, mark) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = base; g.fillRect(0, 0, 128, 128);
+  g.fillStyle = mark;
+  if (type === 'spots') {
+    for (let i = 0; i < 60; i++) {
+      g.beginPath();
+      g.arc(Math.random() * 128, Math.random() * 128, 2.5 + Math.random() * 3, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else if (type === 'stripes') {
+    for (let i = 0; i < 9; i++) {
+      const x = 6 + i * 14 + Math.random() * 4;
+      g.beginPath();
+      g.moveTo(x, -4); g.quadraticCurveTo(x + 10, 64, x, 132);
+      g.lineTo(x + 6, 132); g.quadraticCurveTo(x + 16, 64, x + 6, -4);
+      g.fill();
+    }
+  } else if (type === 'patches') {
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
+      g.beginPath();
+      const cx = 13 + i * 26 + Math.random() * 5, cy = 13 + j * 26 + Math.random() * 5;
+      g.moveTo(cx - 9, cy - 7); g.lineTo(cx + 8, cy - 9); g.lineTo(cx + 10, cy + 8); g.lineTo(cx - 7, cy + 10);
+      g.closePath(); g.fill();
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return new THREE.MeshLambertMaterial({ map: tex });
+}
+
+function textSprite(text, { size = 44, color = '#5a2d00', scale = 11 } = {}) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const g = c.getContext('2d');
+  g.font = `bold ${size}px Trebuchet MS, sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const w = Math.min(500, g.measureText(text).width + 44);
+  g.fillStyle = 'rgba(255,248,234,0.92)';
+  g.beginPath(); g.roundRect(256 - w / 2, 22, w, 84, 40); g.fill();
+  g.strokeStyle = '#b5722a'; g.lineWidth = 5; g.stroke();
+  g.fillStyle = color;
+  g.fillText(text, 256, 66);
+  const tex = new THREE.CanvasTexture(c);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  sp.scale.set(scale, scale / 4, 1);
+  return sp;
+}
+
+/* ============================ ANIMAL MODELS ============================ */
+/* Generic four-legged base; each species customizes it. */
+function quadruped({ bodyL = 2.2, bodyH = 1.1, bodyW = 1.0, legH = 1.0, legR = 0.14,
+                     headS = 0.62, neckL = 0, neckR = 0.22, bodyMat, headMat = null,
+                     tailL = 1.0, tailUp = false } = {}) {
+  const g = new THREE.Group();
+  headMat = headMat || bodyMat;
+  const body = box(bodyL, bodyH, bodyW, bodyMat);
+  body.position.y = legH + bodyH / 2;
+  g.add(body);
+  const legMat = headMat;
+  [[bodyL / 2 - legR * 1.6, bodyW / 2 - legR * 1.4], [bodyL / 2 - legR * 1.6, -bodyW / 2 + legR * 1.4],
+   [-bodyL / 2 + legR * 1.6, bodyW / 2 - legR * 1.4], [-bodyL / 2 + legR * 1.6, -bodyW / 2 + legR * 1.4]]
+    .forEach(([x, z]) => {
+      const leg = cyl(legR, legR * 1.1, legH, legMat, 8);
+      leg.position.set(x, legH / 2, z);
+      g.add(leg);
+    });
+  let headBaseY = legH + bodyH;
+  let headX = bodyL / 2 + headS * 0.55, headY = headBaseY;
+  if (neckL > 0) {
+    const neck = cyl(neckR, neckR * 1.3, neckL, bodyMat, 8);
+    neck.position.set(bodyL / 2 - 0.05, legH + bodyH / 2 + neckL / 2, 0);
+    neck.rotation.z = -0.35;
+    g.add(neck);
+    headX = bodyL / 2 + Math.sin(0.35) * neckL;
+    headY = legH + bodyH / 2 + Math.cos(0.35) * neckL + headS * 0.4;
+    g.userData.neck = neck;
+  }
+  const head = box(headS * 1.15, headS, headS * 0.85, headMat);
+  head.position.set(headX, headY, 0);
+  g.add(head);
+  const eyeM = mat(0x1a1a1a);
+  const e1 = sph(0.055, eyeM, 8, 8), e2 = sph(0.055, eyeM, 8, 8);
+  e1.position.set(headX + headS * 0.45, headY + headS * 0.18, headS * 0.3);
+  e2.position.set(headX + headS * 0.45, headY + headS * 0.18, -headS * 0.3);
+  g.add(e1, e2);
+  const tail = cyl(0.05, 0.028, tailL, headMat, 6);
+  tail.position.set(-bodyL / 2 - 0.08, legH + bodyH * (tailUp ? 0.95 : 0.6), 0);
+  tail.rotation.z = tailUp ? -0.7 : 0.9;
+  g.add(tail);
+  g.userData.head = head; g.userData.tail = tail; g.userData.body = body;
+  g.userData.headPos = { x: headX, y: headY };
+  return g;
+}
+function addEars(g, color, r = 0.13) {
+  const { x, y } = g.userData.headPos, m = mat(color);
+  const s = g.userData.head.geometry.parameters.height;
+  [[s * 0.42], [-s * 0.42]].forEach(([z]) => {
+    const ear = sph(r, m, 8, 8);
+    ear.scale.y = 1.35;
+    ear.position.set(x - s * 0.2, y + s * 0.6, z);
+    g.add(ear);
+  });
+}
+
+const builders = {
+  cheetah() {
+    const m = patternMaterial('spots', '#e8b04b', '#4a3208');
+    const g = quadruped({ bodyL: 2.0, bodyH: 0.75, bodyW: 0.62, legH: 1.0, legR: 0.1, headS: 0.5, bodyMat: m, tailL: 1.25 });
+    addEars(g, 0xe8b04b, 0.1);
+    const { x, y } = g.userData.headPos, tm = mat(0x2a1c05);
+    [[0.16], [-0.16]].forEach(([z]) => {
+      const tear = box(0.05, 0.22, 0.045, tm);
+      tear.position.set(x + 0.26, y - 0.12, z);
+      g.add(tear);
+    });
+    return g;
+  },
+  lion() {
+    const m = mat(0xd9a758);
+    const g = quadruped({ bodyL: 2.3, bodyH: 1.0, bodyW: 0.85, legH: 1.05, legR: 0.15, headS: 0.62, bodyMat: m, tailL: 1.2 });
+    const { x, y } = g.userData.headPos;
+    const mane = sph(0.62, mat(0x8a5a1e), 14, 12);
+    mane.scale.set(0.85, 1, 1);
+    mane.position.set(x - 0.12, y, 0);
+    g.add(mane);
+    const face = box(0.55, 0.5, 0.45, m);
+    face.position.set(x + 0.3, y, 0);
+    g.add(face);
+    const tuft = sph(0.09, mat(0x6b430f), 8, 8);
+    tuft.position.set(-1.35, 1.0, 0);
+    g.userData.tail.add ? g.add(tuft) : null;
+    addEars(g, 0xc4913f, 0.11);
+    return g;
+  },
+  elephant() {
+    const m = mat(0x9a9aa2);
+    const g = quadruped({ bodyL: 3.4, bodyH: 2.0, bodyW: 1.9, legH: 1.5, legR: 0.34, headS: 1.15, bodyMat: m, tailL: 1.3 });
+    const { x, y } = g.userData.headPos;
+    [[1.15], [-1.15]].forEach(([z]) => {
+      const ear = box(0.1, 1.15, 0.95, mat(0x8b8b93));
+      ear.position.set(x - 0.35, y + 0.1, z * 0.62);
+      ear.rotation.y = z > 0 ? 0.5 : -0.5;
+      g.add(ear);
+    });
+    const trunk = cyl(0.14, 0.24, 1.9, m, 8);
+    trunk.position.set(x + 0.72, y - 0.95, 0);
+    trunk.rotation.z = 0.18;
+    g.add(trunk);
+    g.userData.trunk = trunk;
+    const tuskM = mat(0xf5eeda);
+    [[0.3], [-0.3]].forEach(([z]) => {
+      const tusk = cyl(0.05, 0.09, 0.85, tuskM, 8);
+      tusk.position.set(x + 0.6, y - 0.62, z);
+      tusk.rotation.z = 0.5;
+      g.add(tusk);
+    });
+    return g;
+  },
+  crocodile() {
+    const m = mat(0x5c7a3a);
+    const g = new THREE.Group();
+    const body = box(3.2, 0.55, 1.0, m);
+    body.position.y = 0.45;
+    g.add(body);
+    const snout = box(1.5, 0.34, 0.6, mat(0x6b8a46));
+    snout.position.set(2.2, 0.42, 0);
+    g.add(snout);
+    const jawM = mat(0xf5eeda);
+    for (let i = 0; i < 5; i++) {
+      const t1 = cone(0.045, 0.14, jawM, 6);
+      t1.position.set(1.6 + i * 0.28, 0.26, 0.28); t1.rotation.x = Math.PI;
+      const t2 = t1.clone(); t2.position.z = -0.28;
+      g.add(t1, t2);
+    }
+    const eyeM = mat(0xffd447);
+    [[0.32], [-0.32]].forEach(([z]) => {
+      const bump = sph(0.14, m, 8, 8); bump.position.set(1.45, 0.72, z); g.add(bump);
+      const eye = sph(0.06, eyeM, 8, 8); eye.position.set(1.5, 0.78, z); g.add(eye);
+      const pupil = sph(0.028, mat(0x111111), 6, 6); pupil.position.set(1.56, 0.78, z); g.add(pupil);
+    });
+    const tail = cone(0.42, 2.4, mat(0x51692f), 8);
+    tail.rotation.z = Math.PI / 2;
+    tail.position.set(-2.6, 0.45, 0);
+    g.add(tail);
+    g.userData.tail = tail;
+    for (let i = 0; i < 6; i++) {
+      const ridge = cone(0.1, 0.22, mat(0x40571f), 6);
+      ridge.position.set(1.0 - i * 0.55, 0.82, 0);
+      g.add(ridge);
+    }
+    [[1.1, 0.62], [1.1, -0.62], [-1.1, 0.62], [-1.1, -0.62]].forEach(([xx, zz]) => {
+      const leg = cyl(0.11, 0.13, 0.42, m, 6);
+      leg.position.set(xx, 0.21, zz);
+      g.add(leg);
+    });
+    g.userData.headPos = { x: 2.2, y: 0.6 };
+    return g;
+  },
+  monkey() {
+    const m = mat(0x8a7a66);
+    const g = new THREE.Group();
+    const body = sph(0.42, m, 12, 10); body.scale.y = 1.25; body.position.y = 1.05; g.add(body);
+    const head = sph(0.32, m, 12, 10); head.position.y = 1.75; g.add(head);
+    const face = sph(0.22, mat(0x2f2a24), 10, 8); face.scale.z = 0.55; face.position.set(0.18, 1.75, 0); face.rotation.y = Math.PI / 2;
+    face.position.set(0.2, 1.75, 0); g.add(face);
+    const eyeM = mat(0xffffff);
+    [[0.12], [-0.12]].forEach(([z]) => {
+      const e = sph(0.05, eyeM, 8, 8); e.position.set(0.33, 1.82, z); g.add(e);
+      const p = sph(0.025, mat(0x111111), 6, 6); p.position.set(0.37, 1.82, z); g.add(p);
+    });
+    [[0.28], [-0.28]].forEach(([z]) => {
+      const ear = sph(0.09, m, 8, 8); ear.position.set(-0.02, 1.9, z); g.add(ear);
+    });
+    [[0.3], [-0.3]].forEach(([z]) => {
+      const arm = cyl(0.07, 0.06, 0.8, m, 6);
+      arm.position.set(0.1, 0.95, z); arm.rotation.x = z > 0 ? 0.5 : -0.5;
+      g.add(arm);
+    });
+    [[0.18], [-0.18]].forEach(([z]) => {
+      const leg = cyl(0.08, 0.07, 0.6, m, 6);
+      leg.position.set(0, 0.42, z);
+      g.add(leg);
+    });
+    const tail = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.05, 8, 14, Math.PI * 1.3), m);
+    tail.position.set(-0.45, 1.15, 0); tail.rotation.y = Math.PI / 2; tail.rotation.x = 0.4;
+    g.add(tail);
+    g.userData.tail = tail;
+    g.userData.headPos = { x: 0.2, y: 1.75 };
+    return g;
+  },
+  giraffe() {
+    const m = patternMaterial('patches', '#e9c078', '#96601e');
+    const g = quadruped({ bodyL: 2.4, bodyH: 1.3, bodyW: 1.0, legH: 2.3, legR: 0.15, headS: 0.55, neckL: 2.6, neckR: 0.26, bodyMat: m, tailL: 1.4 });
+    const { x, y } = g.userData.headPos;
+    const ossM = mat(0x8a5a1e);
+    [[0.14], [-0.14]].forEach(([z]) => {
+      const horn = cyl(0.035, 0.035, 0.3, ossM, 6);
+      horn.position.set(x - 0.05, y + 0.42, z);
+      const knob = sph(0.06, ossM, 8, 8);
+      knob.position.set(x - 0.05, y + 0.58, z);
+      g.add(horn, knob);
+    });
+    addEars(g, 0xe9c078, 0.1);
+    return g;
+  },
+  zebra() {
+    const m = patternMaterial('stripes', '#f2f0ea', '#1c1c1c');
+    const g = quadruped({ bodyL: 2.1, bodyH: 1.0, bodyW: 0.8, legH: 1.2, legR: 0.12, headS: 0.55, neckL: 0.9, neckR: 0.26, bodyMat: m, tailL: 1.0 });
+    addEars(g, 0xf2f0ea, 0.11);
+    const maneM = mat(0x1c1c1c);
+    const mane = box(0.9, 0.22, 0.08, maneM);
+    mane.position.set(1.25, 2.35, 0);
+    mane.rotation.z = -0.4;
+    g.add(mane);
+    return g;
+  },
+  wildebeest() {
+    const m = mat(0x6e625a);
+    const g = quadruped({ bodyL: 2.3, bodyH: 1.15, bodyW: 0.9, legH: 1.15, legR: 0.13, headS: 0.6, bodyMat: m, tailL: 1.3 });
+    const { x, y } = g.userData.headPos;
+    const hornM = mat(0x3a3230);
+    [[0.3], [-0.3]].forEach(([z]) => {
+      const horn = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.045, 8, 10, Math.PI * 0.9), hornM);
+      horn.position.set(x - 0.05, y + 0.28, z);
+      horn.rotation.x = z > 0 ? -0.8 : 0.8;
+      g.add(horn);
+    });
+    const beard = box(0.5, 0.3, 0.06, mat(0x4a413b));
+    beard.position.set(x + 0.15, y - 0.45, 0);
+    g.add(beard);
+    const hump = sph(0.5, m, 10, 8);
+    hump.scale.set(1.2, 0.7, 0.85);
+    hump.position.set(0.7, 2.25, 0);
+    g.add(hump);
+    return g;
+  },
+  tiger() {
+    const m = patternMaterial('stripes', '#e07b28', '#1c1c1c');
+    const g = quadruped({ bodyL: 2.5, bodyH: 1.05, bodyW: 0.9, legH: 1.0, legR: 0.16, headS: 0.65, bodyMat: m, tailL: 1.35 });
+    const { x, y } = g.userData.headPos;
+    const muzzle = box(0.32, 0.3, 0.4, mat(0xf5f0e6));
+    muzzle.position.set(x + 0.42, y - 0.12, 0);
+    g.add(muzzle);
+    addEars(g, 0xe07b28, 0.12);
+    return g;
+  },
+  rhino() {
+    const m = mat(0xa8a09a);
+    const g = quadruped({ bodyL: 3.0, bodyH: 1.6, bodyW: 1.5, legH: 1.0, legR: 0.28, headS: 0.95, bodyMat: m, tailL: 1.0 });
+    const { x, y } = g.userData.headPos;
+    const hornM = mat(0xd8cfc0);
+    const horn1 = cone(0.16, 0.75, hornM, 8);
+    horn1.position.set(x + 0.55, y + 0.35, 0);
+    horn1.rotation.z = -0.25;
+    const horn2 = cone(0.1, 0.35, hornM, 8);
+    horn2.position.set(x + 0.15, y + 0.5, 0);
+    g.add(horn1, horn2);
+    addEars(g, 0x968e88, 0.12);
+    return g;
+  },
+  hippo() {
+    const m = mat(0x9a7d8a);
+    const g = quadruped({ bodyL: 3.0, bodyH: 1.5, bodyW: 1.6, legH: 0.7, legR: 0.26, headS: 1.0, bodyMat: m, tailL: 0.7 });
+    const { x, y } = g.userData.headPos;
+    const snout = box(0.85, 0.7, 0.95, mat(0xa98a97));
+    snout.position.set(x + 0.55, y - 0.3, 0);
+    g.add(snout);
+    const toothM = mat(0xf5eeda);
+    [[0.32], [-0.32]].forEach(([z]) => {
+      const tooth = box(0.09, 0.2, 0.09, toothM);
+      tooth.position.set(x + 0.92, y - 0.62, z);
+      g.add(tooth);
+    });
+    [[0.45], [-0.45]].forEach(([z]) => {
+      const ear = sph(0.1, m, 8, 8);
+      ear.position.set(x - 0.25, y + 0.55, z);
+      g.add(ear);
+    });
+    return g;
+  },
+  meerkat() {
+    const m = mat(0xc9a76a);
+    const g = new THREE.Group();
+    const body = cyl(0.16, 0.22, 0.75, m, 10);
+    body.position.y = 0.65; g.add(body);
+    const head = sph(0.18, m, 10, 8); head.position.y = 1.15; g.add(head);
+    const snout = cone(0.07, 0.16, mat(0xb08d50), 8);
+    snout.rotation.x = Math.PI / 2;
+    snout.position.set(0.16, 1.1, 0);
+    snout.rotation.z = -Math.PI / 2;
+    g.add(snout);
+    const patchM = mat(0x2f2418);
+    [[0.09], [-0.09]].forEach(([z]) => {
+      const patch = sph(0.045, patchM, 6, 6); patch.position.set(0.14, 1.2, z); g.add(patch);
+    });
+    [[0.1], [-0.1]].forEach(([z]) => {
+      const arm = cyl(0.035, 0.03, 0.3, m, 6);
+      arm.position.set(0.1, 0.75, z); arm.rotation.x = z > 0 ? 0.3 : -0.3;
+      g.add(arm);
+    });
+    [[0.09], [-0.09]].forEach(([z]) => {
+      const leg = cyl(0.05, 0.06, 0.3, m, 6);
+      leg.position.set(0, 0.15, z); g.add(leg);
+    });
+    const tail = cyl(0.035, 0.02, 0.55, mat(0xb08d50), 6);
+    tail.position.set(-0.16, 0.35, 0); tail.rotation.z = 0.5;
+    g.add(tail);
+    g.userData.tail = tail;
+    g.userData.headPos = { x: 0, y: 1.15 };
+    return g;
+  },
+};
+/* ============================ WORLD ============================ */
+const ground = new THREE.Mesh(new THREE.CircleGeometry(200, 56), mat(0xc9b35c));
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+
+function makeAcacia(s = 1) {
+  const g = new THREE.Group();
+  const trunk = cyl(0.18 * s, 0.32 * s, 3.6 * s, mat(0x7a5230), 8);
+  trunk.position.y = 1.8 * s;
+  g.add(trunk);
+  const canopy = cyl(2.6 * s, 1.1 * s, 0.9 * s, mat(0x5c8a3a), 12);
+  canopy.position.y = 3.9 * s;
+  g.add(canopy);
+  return g;
+}
+function makeTree(s = 1) {
+  const g = new THREE.Group();
+  const trunk = cyl(0.22 * s, 0.35 * s, 2.6 * s, mat(0x6e4a28), 8);
+  trunk.position.y = 1.3 * s;
+  g.add(trunk);
+  const canopy = sph(1.7 * s, mat(0x4d7a33), 12, 10);
+  canopy.position.y = 3.2 * s;
+  g.add(canopy);
+  return g;
+}
+function makeRock(r, color = 0x8f8a80) {
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat(color));
+  rock.position.y = r * 0.55;
+  rock.rotation.set(Math.random(), Math.random(), Math.random());
+  return rock;
+}
+function makeGrassTuft() {
+  const g = new THREE.Group();
+  const m = mat(0xb9a545);
+  for (let i = 0; i < 4; i++) {
+    const blade = cone(0.05, 0.55 + Math.random() * 0.3, m, 5);
+    blade.position.set((Math.random() - 0.5) * 0.4, 0.3, (Math.random() - 0.5) * 0.4);
+    blade.rotation.z = (Math.random() - 0.5) * 0.4;
+    g.add(blade);
+  }
+  return g;
+}
+
+/* Tour stops arranged in a big circle. */
+const STOP_R = 58;
+const STOPS = [
+  { key: 'lion',       angle: 0 },
+  { key: 'cheetah',    angle: 30 },
+  { key: 'elephant',   angle: 60 },
+  { key: 'giraffe',    angle: 90 },
+  { key: 'zebra',      angle: 120 },
+  { key: 'wildebeest', angle: 150 },
+  { key: 'rhino',      angle: 180 },
+  { key: 'meerkat',    angle: 210 },
+  { key: 'monkey',     angle: 240 },
+  { key: 'tiger',      angle: 270 },
+  { key: 'crocodile',  angle: 300 },
+  { key: 'hippo',      angle: 330 },
+];
+
+/* dirt tour road (ring) */
+const road = new THREE.Mesh(new THREE.RingGeometry(STOP_R - 11.5, STOP_R - 7.5, 72), mat(0xcf9f62));
+road.rotation.x = -Math.PI / 2;
+road.position.y = 0.02;
+scene.add(road);
+
+/* watering hole shared by croc & hippo (between their stops) */
+const waterAngle = (300 + 330) / 2 * Math.PI / 180;
+const waterPos = new THREE.Vector3(Math.cos(waterAngle) * STOP_R, 0, Math.sin(waterAngle) * STOP_R);
+const water = new THREE.Mesh(new THREE.CircleGeometry(16, 32), mat(0x4fa8d8));
+water.rotation.x = -Math.PI / 2;
+water.position.set(waterPos.x, 0.04, waterPos.z);
+scene.add(water);
+const shore = new THREE.Mesh(new THREE.RingGeometry(16, 18.5, 32), mat(0xd9c27e));
+shore.rotation.x = -Math.PI / 2;
+shore.position.set(waterPos.x, 0.03, waterPos.z);
+scene.add(shore);
+
+const interactables = [];   // { group, key, radius }
+const animators = [];       // per-frame animal animations
+
+function placeAnimal(key, pos, faceAngle, scale = 1) {
+  const d = ANIMALS[key];
+  const g = builders[key]();
+  g.scale.setScalar(scale);
+  g.position.copy(pos);
+  g.rotation.y = faceAngle;
+  const label = textSprite(d.name.split(' the ')[0] + ' ' + d.emoji, {});
+  const top = key === 'giraffe' ? 7.4 : key === 'elephant' ? 5.2 : key === 'meerkat' ? 2.2 :
+              key === 'crocodile' ? 2.4 : key === 'monkey' ? 3.0 : 3.6;
+  label.position.set(0, top, 0);
+  g.add(label);
+  scene.add(g);
+  interactables.push({ group: g, key, radius: key === 'elephant' || key === 'rhino' || key === 'hippo' ? 7 : 5.5 });
+  const phase = Math.random() * Math.PI * 2;
+  animators.push(t => {
+    if (g.userData.tail) g.userData.tail.rotation.x = Math.sin(t * 2.2 + phase) * 0.25;
+    if (g.userData.head) g.userData.head.position.y = g.userData.headPos.y + Math.sin(t * 1.4 + phase) * 0.05;
+    if (g.userData.trunk) g.userData.trunk.rotation.z = 0.18 + Math.sin(t * 1.1 + phase) * 0.12;
+    if (key === 'meerkat') g.rotation.y = faceAngle + Math.sin(t * 0.7 + phase) * 0.5;
+  });
+  return g;
+}
+
+const stopData = [];
+STOPS.forEach(s => {
+  const rad = s.angle * Math.PI / 180;
+  const dir = new THREE.Vector3(Math.cos(rad), 0, Math.sin(rad));
+  const animalPos = dir.clone().multiplyScalar(STOP_R);
+  const truckPos = dir.clone().multiplyScalar(STOP_R - 9.5);  // on the road
+  placeAnimal(s.key, animalPos, 0, 1);
+  stopData.push({ key: s.key, truckPos, animalPos, name: ANIMALS[s.key].name });
+});
+/* model forward is +x; rotate each animal to face the world center */
+interactables.forEach(it => {
+  const p = it.group.position;
+  it.group.rotation.y = Math.atan2(p.z, -p.x);
+  if (it.key === 'crocodile' || it.key === 'hippo') {
+    /* keep croc & hippo near the water edge */
+    const toWater = new THREE.Vector3().subVectors(waterPos, p).setLength(4.5);
+    it.group.position.add(toWater);
+  }
+});
+
+/* scenery scattered outside & inside the ring */
+const rnd = (a, b) => a + Math.random() * (b - a);
+for (let i = 0; i < 26; i++) {
+  const a = rnd(0, Math.PI * 2), r = rnd(75, 130);
+  const t = Math.random() < 0.6 ? makeAcacia(rnd(0.9, 1.5)) : makeTree(rnd(0.8, 1.3));
+  t.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  scene.add(t);
+}
+for (let i = 0; i < 10; i++) {
+  const a = rnd(0, Math.PI * 2), r = rnd(8, 32);
+  const t = Math.random() < 0.5 ? makeAcacia(rnd(0.8, 1.2)) : makeRock(rnd(0.8, 1.8));
+  t.position.set(Math.cos(a) * r, t.position.y, Math.sin(a) * r);
+  scene.add(t);
+}
+for (let i = 0; i < 90; i++) {
+  const a = rnd(0, Math.PI * 2), r = rnd(5, 150);
+  const g = makeGrassTuft();
+  g.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  scene.add(g);
+}
+/* distant hills */
+for (let i = 0; i < 8; i++) {
+  const a = (i / 8) * Math.PI * 2 + 0.2;
+  const hill = cone(rnd(22, 34), rnd(14, 26), mat(0xb08d5a), 7);
+  hill.position.set(Math.cos(a) * 185, 0, Math.sin(a) * 185);
+  scene.add(hill);
+}
+/* clouds */
+for (let i = 0; i < 7; i++) {
+  const cloud = new THREE.Group();
+  for (let j = 0; j < 3; j++) {
+    const puff = sph(rnd(3, 5), new THREE.MeshBasicMaterial({ color: 0xffffff }), 10, 8);
+    puff.position.set(j * 4 - 4, rnd(-0.5, 0.5), rnd(-1, 1));
+    puff.scale.y = 0.55;
+    cloud.add(puff);
+  }
+  cloud.position.set(rnd(-140, 140), rnd(45, 70), rnd(-140, 140));
+  scene.add(cloud);
+}
+
+/* monkey's tree + extra herd members for zebra & wildebeest */
+const monkeyIt = interactables.find(i => i.key === 'monkey');
+const mTree = makeTree(1.4);
+mTree.position.copy(monkeyIt.group.position).add(new THREE.Vector3(-2.5, 0, -2.5));
+scene.add(mTree);
+['zebra', 'wildebeest'].forEach(key => {
+  const leader = interactables.find(i => i.key === key).group;
+  for (let i = 0; i < 3; i++) {
+    const pal = builders[key]();
+    pal.scale.setScalar(rnd(0.75, 0.95));
+    pal.position.copy(leader.position).add(new THREE.Vector3(rnd(-7, 7), 0, rnd(4, 10)));
+    pal.rotation.y = rnd(0, Math.PI * 2);
+    scene.add(pal);
+    const phase = rnd(0, 6.28);
+    animators.push(t => { if (pal.userData.tail) pal.userData.tail.rotation.x = Math.sin(t * 2 + phase) * 0.3; });
+  }
+});
+/* meerkat friends */
+const mk = interactables.find(i => i.key === 'meerkat').group;
+for (let i = 0; i < 3; i++) {
+  const pal = builders.meerkat();
+  pal.scale.setScalar(rnd(0.7, 0.9));
+  pal.position.copy(mk.position).add(new THREE.Vector3(rnd(-3, 3), 0, rnd(2, 5)));
+  pal.rotation.y = rnd(0, 6.28);
+  scene.add(pal);
+}
+/* meerkat mound */
+const mound = cone(2.2, 1.1, mat(0xc2a06a), 10);
+mound.position.copy(mk.position).add(new THREE.Vector3(-2, 0.4, -2));
+scene.add(mound);
+
+/* ============================ PLAYER ============================ */
+function makeRanger() {
+  const g = new THREE.Group();
+  const body = cyl(0.28, 0.34, 0.95, mat(0xc7b299), 10);
+  body.position.y = 0.85; g.add(body);
+  const head = sph(0.3, mat(0xe8b88a), 12, 10);
+  head.position.y = 1.65; g.add(head);
+  const brim = cyl(0.5, 0.5, 0.06, mat(0x8a6a3a), 12);
+  brim.position.y = 1.85; g.add(brim);
+  const top = cyl(0.3, 0.33, 0.26, mat(0x8a6a3a), 12);
+  top.position.y = 1.98; g.add(top);
+  const eyeM = mat(0x222222);
+  [[0.11], [-0.11]].forEach(([z]) => {
+    const e = sph(0.035, eyeM, 6, 6);
+    e.position.set(0.26, 1.7, z); g.add(e);
+  });
+  [[0.36], [-0.36]].forEach(([z]) => {
+    const arm = cyl(0.07, 0.07, 0.7, mat(0xc7b299), 6);
+    arm.position.set(0, 0.95, z); g.add(arm);
+  });
+  [[0.13], [-0.13]].forEach(([z]) => {
+    const leg = cyl(0.09, 0.09, 0.55, mat(0x6d5a3a), 6);
+    leg.position.set(0, 0.28, z); g.add(leg);
+  });
+  return g;
+}
+const player = makeRanger();
+player.position.set(STOP_R - 20, 0, 6);
+scene.add(player);
+let playerAngle = Math.PI;
+
+/* ============================ SAFARI TRUCK ============================ */
+function makeTruck() {
+  const g = new THREE.Group();
+  const bodyM = mat(0x4d7a33);
+  const body = box(4.4, 1.1, 2.1, bodyM);
+  body.position.y = 1.15; g.add(body);
+  const hood = box(1.3, 0.75, 1.9, mat(0x456d2e));
+  hood.position.set(2.5, 0.95, 0); g.add(hood);
+  const grill = box(0.12, 0.5, 1.5, mat(0x2f2f2f));
+  grill.position.set(3.18, 0.9, 0); g.add(grill);
+  [[0.55], [-0.55]].forEach(([z]) => {
+    const light = sph(0.13, new THREE.MeshBasicMaterial({ color: 0xfff2b0 }), 8, 8);
+    light.position.set(3.2, 1.2, z); g.add(light);
+  });
+  /* seats & canopy */
+  for (let i = 0; i < 3; i++) {
+    const seat = box(0.7, 0.55, 1.8, mat(0x8a6a3a));
+    seat.position.set(0.9 - i * 1.3, 1.95, 0); g.add(seat);
+  }
+  [[1.9, 0.95], [1.9, -0.95], [-1.9, 0.95], [-1.9, -0.95]].forEach(([x, z]) => {
+    const pole = cyl(0.05, 0.05, 1.6, mat(0x6b4f2a), 6);
+    pole.position.set(x, 2.5, z); g.add(pole);
+  });
+  const canopy = box(4.5, 0.12, 2.3, mat(0xd9b98c));
+  canopy.position.set(0, 3.35, 0); g.add(canopy);
+  const canopy2 = box(4.6, 0.1, 2.4, mat(0xc07d1c));
+  canopy2.position.set(0, 3.46, 0); g.add(canopy2);
+  /* wheels */
+  const wheels = [];
+  [[2.3, 1.05], [2.3, -1.05], [-1.8, 1.05], [-1.8, -1.05]].forEach(([x, z]) => {
+    const wheel = cyl(0.55, 0.55, 0.35, mat(0x2b2b2b), 14);
+    wheel.rotation.x = Math.PI / 2;
+    wheel.position.set(x, 0.55, z);
+    g.add(wheel);
+    const hub = cyl(0.2, 0.2, 0.37, mat(0xd9d9d9), 10);
+    hub.rotation.x = Math.PI / 2;
+    hub.position.set(x, 0.55, z);
+    g.add(hub);
+    wheels.push(wheel);
+  });
+  g.userData.wheels = wheels;
+  const sign = textSprite('\u{1F699} Safari Tour', { scale: 9 });
+  sign.position.set(0, 4.4, 0);
+  g.add(sign);
+  return g;
+}
+const truck = makeTruck();
+truck.position.copy(stopData[0].truckPos);
+truck.position.x -= 6;
+truck.rotation.y = Math.PI / 2;
+scene.add(truck);
+
+/* truck tour state */
+let inTruck = false;
+let driving = false;
+let stopIndex = -1;          // which stop the truck is at/heading to
+let driveTarget = null;
+
+function truckAngleFor(dirVec) { return Math.atan2(-dirVec.z, dirVec.x); }
+
+function driveToStop(i) {
+  stopIndex = ((i % stopData.length) + stopData.length) % stopData.length;
+  driveTarget = stopData[stopIndex].truckPos.clone();
+  driving = true;
+  document.getElementById('stopName').textContent = '\u{1F699} Driving to ' + stopData[stopIndex].name + '...';
+}
+
+/* ============================ INPUT ============================ */
+const keys = {};
+let dialogOpen = false;
+let nearAnimal = null;
+let nearTruck = false;
+
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'KeyE' && !dialogOpen) {
+    if (nearAnimal && !inTruck) openDialog(nearAnimal);
+    else if (nearTruck && !inTruck) hopIn();
+    else if (inTruck && !driving) hopOut();
+  }
+  if (e.code === 'KeyN' && inTruck && !driving && !dialogOpen) driveToStop(stopIndex + 1);
+  if (e.code === 'Escape' && dialogOpen) closeDialog();
+});
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+const isTouch = 'ontouchstart' in window;
+if (isTouch) {
+  document.getElementById('touchPad').style.display = 'block';
+  document.querySelectorAll('#touchPad button').forEach(btn => {
+    const k = btn.dataset.k;
+    btn.addEventListener('touchstart', e => { e.preventDefault(); keys[k] = true; }, { passive: false });
+    btn.addEventListener('touchend', e => { e.preventDefault(); keys[k] = false; }, { passive: false });
+  });
+  document.getElementById('talkBtn').addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (dialogOpen) return;
+    if (nearAnimal && !inTruck) openDialog(nearAnimal);
+    else if (nearTruck && !inTruck) hopIn();
+    else if (inTruck && !driving) hopOut();
+  }, { passive: false });
+}
+
+/* truck UI */
+const truckPanel = document.getElementById('truckPanel');
+document.getElementById('nextStopBtn').addEventListener('click', () => { if (inTruck && !driving) driveToStop(stopIndex + 1); });
+document.getElementById('hopOutBtn').addEventListener('click', () => { if (inTruck && !driving) hopOut(); });
+
+function hopIn() {
+  inTruck = true;
+  player.visible = false;
+  truckPanel.style.display = 'flex';
+  document.getElementById('stopName').textContent = '\u{1F699} All aboard! Press Next Animal!';
+  if (stopIndex === -1) stopIndex = nearestStopIndex();
+}
+function hopOut() {
+  inTruck = false;
+  player.visible = true;
+  const side = new THREE.Vector3(Math.sin(truck.rotation.y), 0, Math.cos(truck.rotation.y));
+  player.position.copy(truck.position).addScaledVector(side, 2.6);
+  player.position.y = 0;
+  truckPanel.style.display = 'none';
+}
+function nearestStopIndex() {
+  let best = 0, bd = 1e9;
+  stopData.forEach((s, i) => {
+    const d = truck.position.distanceTo(s.truckPos);
+    if (d < bd) { bd = d; best = i; }
+  });
+  return best;
+}
+
+/* ============================ VOICES (TTS) ============================ */
+const synth = window.speechSynthesis;
+let voicesEnabled = localStorage.getItem('sw_voices') !== 'off';
+const voicePools = { male: [], female: [] };
+const NOVELTY = /albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|hysterical|junior|kathy/i;
+const PREFERRED = {
+  male: ['daniel', 'alex', 'aaron', 'arthur', 'gordon', 'rishi', 'reed', 'eddy', 'rocko', 'grandpa', 'fred', 'ralph', 'google uk english male', 'microsoft david', 'microsoft mark', 'microsoft guy', 'google us english'],
+  female: ['samantha', 'karen', 'moira', 'tessa', 'victoria', 'kate', 'susan', 'allison', 'ava', 'serena', 'flo', 'sandy', 'shelley', 'grandma', 'nicky', 'google uk english female', 'microsoft zira', 'microsoft aria', 'microsoft jenny'],
+};
+const FEMALE_HINT = /samantha|karen|moira|tessa|victoria|kate|susan|allison|ava|serena|flo|sandy|shelley|grandma|nicky|zira|aria|jenny|fiona|female|woman/i;
+function loadVoices() {
+  if (!synth) return;
+  const all = synth.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith('en') && !NOVELTY.test(v.name));
+  const pick = names => {
+    const out = [];
+    for (const n of names) {
+      const v = all.find(v => v.name.toLowerCase().includes(n) && !out.includes(v));
+      if (v) out.push(v);
+    }
+    return out;
+  };
+  voicePools.male = pick(PREFERRED.male);
+  voicePools.female = pick(PREFERRED.female);
+  if (!voicePools.male.length) voicePools.male = all.filter(v => !FEMALE_HINT.test(v.name));
+  if (!voicePools.female.length) voicePools.female = all.filter(v => FEMALE_HINT.test(v.name));
+  if (!voicePools.male.length) voicePools.male = all;
+  if (!voicePools.female.length) voicePools.female = all;
+}
+if (synth) { loadVoices(); synth.onvoiceschanged = loadVoices; }
+
+function speak(text, profile) {
+  stopSpeaking();
+  if (!synth || !voicesEnabled || !profile) return;
+  const parts = text.match(/[^.!?]+[.!?'"’”]*/g) || [text];
+  const pool = voicePools[profile.gender] || [];
+  const voice = pool.length ? pool[profile.idx % pool.length] : null;
+  const emojiEl = document.getElementById('dialogEmoji');
+  let remaining = parts.length;
+  const done = () => { if (--remaining <= 0) emojiEl.classList.remove('speaking'); };
+  parts.forEach(part => {
+    const u = new SpeechSynthesisUtterance(part.trim());
+    if (voice) u.voice = voice;
+    u.pitch = profile.pitch;
+    u.rate = profile.rate;
+    u.onstart = () => emojiEl.classList.add('speaking');
+    u.onend = done;
+    u.onerror = done;
+    synth.speak(u);
+  });
+}
+function stopSpeaking() {
+  if (synth) synth.cancel();
+  document.getElementById('dialogEmoji').classList.remove('speaking');
+}
+const voiceBtn = document.getElementById('voiceBtn');
+function refreshVoiceBtn() {
+  voiceBtn.textContent = voicesEnabled ? '\u{1F50A}' : '\u{1F507}';
+  voiceBtn.classList.toggle('muted', !voicesEnabled);
+}
+refreshVoiceBtn();
+voiceBtn.addEventListener('click', () => {
+  voicesEnabled = !voicesEnabled;
+  localStorage.setItem('sw_voices', voicesEnabled ? 'on' : 'off');
+  if (!voicesEnabled) stopSpeaking();
+  refreshVoiceBtn();
+});
+
+/* ============================ DIALOG ============================ */
+const dialogEl = document.getElementById('dialog');
+const promptEl = document.getElementById('prompt');
+function openDialog(it) {
+  const d = ANIMALS[it.key];
+  dialogOpen = true;
+  document.getElementById('dialogEmoji').textContent = d.emoji;
+  document.getElementById('dialogName').textContent = d.name;
+  document.getElementById('dialogSub').textContent = d.sub;
+  document.getElementById('dialogText').textContent = d.greeting;
+  const factEl = document.getElementById('dialogFact');
+  factEl.style.display = 'none';
+  const qWrap = document.getElementById('dialogQuestions');
+  qWrap.innerHTML = '';
+  d.questions.forEach(item => {
+    const b = document.createElement('button');
+    b.textContent = item.q;
+    b.addEventListener('click', () => {
+      document.getElementById('dialogText').textContent = item.a;
+      factEl.textContent = '\u{1F33F} Ranger Note: ' + item.r;
+      factEl.style.display = 'block';
+      b.classList.add('asked');
+      speak(item.a, d.voice);
+    });
+    qWrap.appendChild(b);
+  });
+  dialogEl.style.display = 'flex';
+  speak(d.greeting, d.voice);
+}
+function closeDialog() {
+  dialogOpen = false;
+  dialogEl.style.display = 'none';
+  stopSpeaking();
+}
+document.getElementById('dialogClose').addEventListener('click', closeDialog);
+dialogEl.addEventListener('click', e => { if (e.target === dialogEl) closeDialog(); });
+
+/* ============================ START ============================ */
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('titleScreen').style.display = 'none';
+  document.getElementById('hud').style.display = 'flex';
+  if (!isTouch) document.getElementById('keysHelp').style.display = 'block';
+  if (synth) { const u = new SpeechSynthesisUtterance(' '); synth.speak(u); } // unlock audio
+});
+
+/* ============================ GAME LOOP ============================ */
+const clock = new THREE.Clock();
+const camTarget = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+  step();
+}
+function step() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  animators.forEach(fn => fn(t));
+
+  if (!dialogOpen) {
+    if (inTruck) {
+      if (driving && driveTarget) {
+        const to = new THREE.Vector3().subVectors(driveTarget, truck.position);
+        to.y = 0;
+        const dist = to.length();
+        const targetAngle = truckAngleFor(to.normalize());
+        let da = targetAngle - truck.rotation.y;
+        while (da > Math.PI) da -= Math.PI * 2;
+        while (da < -Math.PI) da += Math.PI * 2;
+        truck.rotation.y += THREE.MathUtils.clamp(da, -1.6 * dt, 1.6 * dt);
+        if (Math.abs(da) < 0.5) {
+          const speed = Math.min(11, 3 + dist * 0.6);
+          truck.position.addScaledVector(new THREE.Vector3(Math.cos(truck.rotation.y), 0, -Math.sin(truck.rotation.y)), speed * dt);
+          truck.userData.wheels.forEach(w => w.rotation.y -= speed * dt * 1.6);
+          truck.position.y = Math.abs(Math.sin(t * 14)) * 0.04;
+        }
+        if (dist < 1.2) {
+          driving = false;
+          driveTarget = null;
+          truck.position.y = 0;
+          document.getElementById('stopName').textContent = '\u{1F4CD} ' + stopData[stopIndex].name + ' — hop out and say hi!';
+        }
+      }
+    } else {
+      /* walking */
+      let mx = 0, mz = 0;
+      if (keys.ArrowUp || keys.KeyW) mz -= 1;
+      if (keys.ArrowDown || keys.KeyS) mz += 1;
+      if (keys.ArrowLeft || keys.KeyA) mx -= 1;
+      if (keys.ArrowRight || keys.KeyD) mx += 1;
+      if (mx || mz) {
+        const len = Math.hypot(mx, mz);
+        const speed = 8.5;
+        player.position.x += (mx / len) * speed * dt;
+        player.position.z += (mz / len) * speed * dt;
+        const r = Math.hypot(player.position.x, player.position.z);
+        if (r > 195) {
+          player.position.x *= 195 / r;
+          player.position.z *= 195 / r;
+        }
+        playerAngle = Math.atan2(-(mz / len), mx / len);
+        player.rotation.y = playerAngle;
+        player.position.y = Math.abs(Math.sin(t * 10)) * 0.12;
+      } else {
+        player.position.y = 0;
+      }
+    }
+  }
+
+  /* proximity checks */
+  const focus = inTruck ? truck.position : player.position;
+  nearAnimal = null;
+  let bestD = 1e9;
+  for (const it of interactables) {
+    const d = focus.distanceTo(it.group.position);
+    if (d < it.radius && d < bestD) { bestD = d; nearAnimal = it; }
+  }
+  nearTruck = !inTruck && player.position.distanceTo(truck.position) < 5;
+
+  if (!dialogOpen) {
+    if (nearAnimal && !inTruck) {
+      promptEl.textContent = (isTouch ? 'Tap Talk! to chat with ' : 'Press E to talk to ') + ANIMALS[nearAnimal.key].name + '!';
+      promptEl.style.display = 'block';
+      document.getElementById('talkBtn').style.display = isTouch ? 'block' : 'none';
+      document.getElementById('talkBtn').textContent = 'Talk!';
+    } else if (nearTruck) {
+      promptEl.textContent = isTouch ? 'Tap the button to hop in the safari truck!' : 'Press E to hop in the safari truck!';
+      promptEl.style.display = 'block';
+      document.getElementById('talkBtn').style.display = isTouch ? 'block' : 'none';
+      document.getElementById('talkBtn').textContent = 'Hop In!';
+    } else if (inTruck && !driving) {
+      promptEl.style.display = 'none';
+      document.getElementById('talkBtn').style.display = isTouch ? 'block' : 'none';
+      document.getElementById('talkBtn').textContent = 'Hop Out';
+    } else {
+      promptEl.style.display = 'none';
+      document.getElementById('talkBtn').style.display = 'none';
+    }
+  } else {
+    promptEl.style.display = 'none';
+    document.getElementById('talkBtn').style.display = 'none';
+  }
+
+  /* camera follows player or truck */
+  if (inTruck) {
+    const back = new THREE.Vector3(-Math.cos(truck.rotation.y), 0, Math.sin(truck.rotation.y));
+    camTarget.copy(truck.position).addScaledVector(back, 13).add(new THREE.Vector3(0, 8.5, 0));
+  } else {
+    camTarget.set(player.position.x, player.position.y + 7.5, player.position.z + 12);
+  }
+  camera.position.lerp(camTarget, 1 - Math.pow(0.001, dt));
+  camera.lookAt(inTruck ? truck.position.clone().add(new THREE.Vector3(0, 2, 0)) : player.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.__safari = { player, truck, stopData, interactables, step, clock };
+</script>
+</body>
+</html>
