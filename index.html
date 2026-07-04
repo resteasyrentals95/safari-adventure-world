@@ -183,18 +183,50 @@ import * as THREE from 'three';
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9ed9f2);
-scene.fog = new THREE.Fog(0xf2d8a0, 110, 300);
+scene.fog = new THREE.Fog(0xead9b0, 130, 340);
 
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 900);
 
-scene.add(new THREE.HemisphereLight(0xfff6e0, 0xb9a15e, 0.95));
-const sun = new THREE.DirectionalLight(0xfff1c9, 1.15);
-sun.position.set(60, 90, 40);
+scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x8a7442, 0.9));
+scene.add(new THREE.AmbientLight(0xfff2d9, 0.3));
+const sun = new THREE.DirectionalLight(0xfff1c9, 1.7);
+sun.position.set(90, 130, 60);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 20;
+sun.shadow.camera.far = 450;
+sun.shadow.camera.left = -160;
+sun.shadow.camera.right = 160;
+sun.shadow.camera.top = 160;
+sun.shadow.camera.bottom = -160;
+sun.shadow.bias = -0.0008;
 scene.add(sun);
+
+/* big sky dome with a soft dawn-to-blue gradient */
+{
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 256;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0.0, '#2f7fd1');
+  grad.addColorStop(0.45, '#7cc4ee');
+  grad.addColorStop(0.72, '#cfeaf6');
+  grad.addColorStop(1.0, '#ffe9c4');
+  g.fillStyle = grad; g.fillRect(0, 0, 4, 256);
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(430, 24, 16),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), side: THREE.BackSide, fog: false })
+  );
+  scene.add(sky);
+}
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -203,7 +235,7 @@ window.addEventListener('resize', () => {
 });
 
 /* ============================ HELPERS ============================ */
-const mat = (color, opts = {}) => new THREE.MeshLambertMaterial({ color, ...opts });
+const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.92, metalness: 0.02, ...opts });
 const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
 const cyl = (rt, rb, h, m, seg = 10) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
 const sph = (r, m, w = 12, h = 10) => new THREE.Mesh(new THREE.SphereGeometry(r, w, h), m);
@@ -211,35 +243,35 @@ const cone = (r, h, m, seg = 10) => new THREE.Mesh(new THREE.ConeGeometry(r, h, 
 
 function patternMaterial(type, base, mark) {
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = 256;
   const g = c.getContext('2d');
-  g.fillStyle = base; g.fillRect(0, 0, 128, 128);
+  g.fillStyle = base; g.fillRect(0, 0, 256, 256);
   g.fillStyle = mark;
   if (type === 'spots') {
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 130; i++) {
       g.beginPath();
-      g.arc(Math.random() * 128, Math.random() * 128, 2.5 + Math.random() * 3, 0, Math.PI * 2);
+      g.arc(Math.random() * 256, Math.random() * 256, 4 + Math.random() * 5, 0, Math.PI * 2);
       g.fill();
     }
   } else if (type === 'stripes') {
     for (let i = 0; i < 9; i++) {
-      const x = 6 + i * 14 + Math.random() * 4;
+      const x = 12 + i * 28 + Math.random() * 8;
       g.beginPath();
-      g.moveTo(x, -4); g.quadraticCurveTo(x + 10, 64, x, 132);
-      g.lineTo(x + 6, 132); g.quadraticCurveTo(x + 16, 64, x + 6, -4);
+      g.moveTo(x, -8); g.quadraticCurveTo(x + 20, 128, x, 264);
+      g.lineTo(x + 11, 264); g.quadraticCurveTo(x + 31, 128, x + 11, -8);
       g.fill();
     }
   } else if (type === 'patches') {
     for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
       g.beginPath();
-      const cx = 13 + i * 26 + Math.random() * 5, cy = 13 + j * 26 + Math.random() * 5;
-      g.moveTo(cx - 9, cy - 7); g.lineTo(cx + 8, cy - 9); g.lineTo(cx + 10, cy + 8); g.lineTo(cx - 7, cy + 10);
+      const cx = 26 + i * 52 + Math.random() * 10, cy = 26 + j * 52 + Math.random() * 10;
+      g.moveTo(cx - 18, cy - 14); g.lineTo(cx + 16, cy - 18); g.lineTo(cx + 20, cy + 16); g.lineTo(cx - 14, cy + 20);
       g.closePath(); g.fill();
     }
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return new THREE.MeshLambertMaterial({ map: tex });
+  return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, metalness: 0.02 });
 }
 
 function textSprite(text, { size = 44, color = '#5a2d00', scale = 11 } = {}) {
@@ -261,347 +293,585 @@ function textSprite(text, { size = 44, color = '#5a2d00', scale = 11 } = {}) {
 }
 
 /* ============================ ANIMAL MODELS ============================ */
-/* Generic four-legged base; each species customizes it. */
+/* Organic four-legged base: rounded ellipsoid body, jointed neck + head group,
+   and a hinged lower jaw that animates while the animal talks. */
 function quadruped({ bodyL = 2.2, bodyH = 1.1, bodyW = 1.0, legH = 1.0, legR = 0.14,
-                     headS = 0.62, neckL = 0, neckR = 0.22, bodyMat, headMat = null,
-                     tailL = 1.0, tailUp = false } = {}) {
+                     headS = 0.62, neckL = 0, neckR = 0.22, neckTilt = 0.5,
+                     bodyMat, headMat = null, tailL = 1.0, tailUp = false, muzzle = 0.75 } = {}) {
   const g = new THREE.Group();
   headMat = headMat || bodyMat;
-  const body = box(bodyL, bodyH, bodyW, bodyMat);
-  body.position.y = legH + bodyH / 2;
-  g.add(body);
-  const legMat = headMat;
-  [[bodyL / 2 - legR * 1.6, bodyW / 2 - legR * 1.4], [bodyL / 2 - legR * 1.6, -bodyW / 2 + legR * 1.4],
-   [-bodyL / 2 + legR * 1.6, bodyW / 2 - legR * 1.4], [-bodyL / 2 + legR * 1.6, -bodyW / 2 + legR * 1.4]]
+
+  /* rounded body: chest + rump ellipsoids blended by a belly */
+  const chest = sph(1, bodyMat, 18, 14);
+  chest.scale.set(bodyL * 0.34, bodyH * 0.54, bodyW * 0.52);
+  chest.position.set(bodyL * 0.2, legH + bodyH * 0.52, 0);
+  const rump = sph(1, bodyMat, 18, 14);
+  rump.scale.set(bodyL * 0.33, bodyH * 0.5, bodyW * 0.5);
+  rump.position.set(-bodyL * 0.24, legH + bodyH * 0.5, 0);
+  const belly = sph(1, bodyMat, 16, 12);
+  belly.scale.set(bodyL * 0.36, bodyH * 0.46, bodyW * 0.48);
+  belly.position.set(-0.02, legH + bodyH * 0.44, 0);
+  g.add(chest, rump, belly);
+
+  /* tapered legs with rounded thighs and dark hooves */
+  const hoofM = mat(0x4a3a2a);
+  [[bodyL * 0.3, bodyW * 0.28], [bodyL * 0.3, -bodyW * 0.28],
+   [-bodyL * 0.3, bodyW * 0.28], [-bodyL * 0.3, -bodyW * 0.28]]
     .forEach(([x, z]) => {
-      const leg = cyl(legR, legR * 1.1, legH, legMat, 8);
+      const leg = cyl(legR * 0.82, legR * 1.05, legH, headMat, 10);
       leg.position.set(x, legH / 2, z);
       g.add(leg);
+      const thigh = sph(legR * 1.75, bodyMat, 10, 8);
+      thigh.scale.set(1.15, 1.5, 1);
+      thigh.position.set(x, legH * 0.82, z);
+      g.add(thigh);
+      const hoof = cyl(legR * 1.0, legR * 1.08, legR * 0.9, hoofM, 10);
+      hoof.position.set(x, legR * 0.45, z);
+      g.add(hoof);
     });
-  let headBaseY = legH + bodyH;
-  let headX = bodyL / 2 + headS * 0.55, headY = headBaseY;
-  if (neckL > 0) {
-    const neck = cyl(neckR, neckR * 1.3, neckL, bodyMat, 8);
-    neck.position.set(bodyL / 2 - 0.05, legH + bodyH / 2 + neckL / 2, 0);
-    neck.rotation.z = -0.35;
-    g.add(neck);
-    headX = bodyL / 2 + Math.sin(0.35) * neckL;
-    headY = legH + bodyH / 2 + Math.cos(0.35) * neckL + headS * 0.4;
-    g.userData.neck = neck;
-  }
-  const head = box(headS * 1.15, headS, headS * 0.85, headMat);
-  head.position.set(headX, headY, 0);
-  g.add(head);
-  const eyeM = mat(0x1a1a1a);
-  const e1 = sph(0.055, eyeM, 8, 8), e2 = sph(0.055, eyeM, 8, 8);
-  e1.position.set(headX + headS * 0.45, headY + headS * 0.18, headS * 0.3);
-  e2.position.set(headX + headS * 0.45, headY + headS * 0.18, -headS * 0.3);
-  g.add(e1, e2);
-  const tail = cyl(0.05, 0.028, tailL, headMat, 6);
-  tail.position.set(-bodyL / 2 - 0.08, legH + bodyH * (tailUp ? 0.95 : 0.6), 0);
+
+  /* neck pivots at the shoulders; the head group rides on top */
+  const nl = neckL > 0 ? neckL : headS * 0.62;
+  const neckGroup = new THREE.Group();
+  neckGroup.position.set(bodyL * 0.38, legH + bodyH * 0.72, 0);
+  g.add(neckGroup);
+  const neck = cyl(neckR, neckR * 1.35, nl, bodyMat, 12);
+  neck.position.set(Math.sin(neckTilt) * nl / 2, Math.cos(neckTilt) * nl / 2, 0);
+  neck.rotation.z = -neckTilt;
+  neckGroup.add(neck);
+  g.userData.neckMesh = neck;
+
+  const headGroup = new THREE.Group();
+  headGroup.position.set(Math.sin(neckTilt) * nl, Math.cos(neckTilt) * nl + headS * 0.18, 0);
+  neckGroup.add(headGroup);
+
+  const skull = sph(headS * 0.52, headMat, 16, 14);
+  skull.scale.set(1.06, 0.98, 0.88);
+  headGroup.add(skull);
+
+  const snout = sph(headS * 0.3, headMat, 14, 12);
+  snout.scale.set(muzzle * 2.0, 0.95, 1.05);
+  snout.position.set(headS * 0.42, -headS * 0.1, 0);
+  headGroup.add(snout);
+
+  const nose = sph(headS * 0.09, mat(0x2b2320), 10, 8);
+  nose.position.set(headS * (0.42 + muzzle * 0.55), -headS * 0.04, 0);
+  headGroup.add(nose);
+
+  /* hinged lower jaw with a pink mouth inside */
+  const jawGroup = new THREE.Group();
+  jawGroup.position.set(headS * 0.08, -headS * 0.24, 0);
+  headGroup.add(jawGroup);
+  const jaw = sph(headS * 0.26, headMat, 12, 10);
+  jaw.scale.set(muzzle * 2.0, 0.6, 0.9);
+  jaw.position.set(headS * 0.36, -headS * 0.04, 0);
+  jawGroup.add(jaw);
+  const mouth = sph(headS * 0.2, mat(0x8c4550), 10, 8);
+  mouth.scale.set(muzzle * 1.5, 0.45, 0.7);
+  mouth.position.set(headS * 0.34, headS * 0.03, 0);
+  jawGroup.add(mouth);
+
+  /* friendly eyes: whites + pupils */
+  const eyeW = mat(0xf5f5f0), eyeB = mat(0x141414);
+  [1, -1].forEach(s => {
+    const w = sph(headS * 0.105, eyeW, 10, 8);
+    w.position.set(headS * 0.3, headS * 0.16, s * headS * 0.3);
+    const p = sph(headS * 0.055, eyeB, 8, 8);
+    p.position.set(headS * 0.38, headS * 0.17, s * headS * 0.32);
+    headGroup.add(w, p);
+  });
+
+  const tail = cyl(0.05, 0.028, tailL, headMat, 8);
+  tail.position.set(-bodyL / 2 - 0.04, legH + bodyH * (tailUp ? 0.9 : 0.62), 0);
   tail.rotation.z = tailUp ? -0.7 : 0.9;
   g.add(tail);
-  g.userData.head = head; g.userData.tail = tail; g.userData.body = body;
-  g.userData.headPos = { x: headX, y: headY };
+
+  g.userData.headGroup = headGroup;
+  g.userData.neckGroup = neckGroup;
+  g.userData.jaw = jawGroup;
+  g.userData.chest = chest;
+  g.userData.tail = tail;
+  g.userData.headS = headS;
   return g;
 }
 function addEars(g, color, r = 0.13) {
-  const { x, y } = g.userData.headPos, m = mat(color);
-  const s = g.userData.head.geometry.parameters.height;
-  [[s * 0.42], [-s * 0.42]].forEach(([z]) => {
-    const ear = sph(r, m, 8, 8);
-    ear.scale.y = 1.35;
-    ear.position.set(x - s * 0.2, y + s * 0.6, z);
-    g.add(ear);
+  const hg = g.userData.headGroup, s = g.userData.headS, m = mat(color);
+  [1, -1].forEach(side => {
+    const ear = sph(r, m, 10, 8);
+    ear.scale.set(0.55, 1.4, 1);
+    ear.position.set(-s * 0.18, s * 0.52, side * s * 0.34);
+    ear.rotation.x = side * -0.35;
+    hg.add(ear);
   });
+}
+function tailTuft(g, color, tailL) {
+  const t = sph(0.1, mat(color), 8, 8);
+  t.position.set(0, -tailL / 2, 0);
+  g.userData.tail.add(t);
 }
 
 const builders = {
   cheetah() {
     const m = patternMaterial('spots', '#e8b04b', '#4a3208');
-    const g = quadruped({ bodyL: 2.0, bodyH: 0.75, bodyW: 0.62, legH: 1.0, legR: 0.1, headS: 0.5, bodyMat: m, tailL: 1.25 });
-    addEars(g, 0xe8b04b, 0.1);
-    const { x, y } = g.userData.headPos, tm = mat(0x2a1c05);
-    [[0.16], [-0.16]].forEach(([z]) => {
-      const tear = box(0.05, 0.22, 0.045, tm);
-      tear.position.set(x + 0.26, y - 0.12, z);
-      g.add(tear);
+    const g = quadruped({ bodyL: 2.0, bodyH: 0.72, bodyW: 0.6, legH: 1.05, legR: 0.09, headS: 0.5,
+                          neckL: 0.45, neckR: 0.15, neckTilt: 0.55, bodyMat: m, headMat: mat(0xe3ac49),
+                          tailL: 1.3, muzzle: 0.55 });
+    addEars(g, 0xe0a844, 0.1);
+    const hg = g.userData.headGroup, tm = mat(0x2a1c05);
+    [1, -1].forEach(s => {
+      const tear = box(0.035, 0.2, 0.035, tm);
+      tear.position.set(0.24, -0.1, s * 0.12);
+      tear.rotation.z = 0.25;
+      hg.add(tear);
     });
+    tailTuft(g, 0x2a1c05, 1.3);
     return g;
   },
   lion() {
     const m = mat(0xd9a758);
-    const g = quadruped({ bodyL: 2.3, bodyH: 1.0, bodyW: 0.85, legH: 1.05, legR: 0.15, headS: 0.62, bodyMat: m, tailL: 1.2 });
-    const { x, y } = g.userData.headPos;
-    const mane = sph(0.62, mat(0x8a5a1e), 14, 12);
-    mane.scale.set(0.85, 1, 1);
-    mane.position.set(x - 0.12, y, 0);
-    g.add(mane);
-    const face = box(0.55, 0.5, 0.45, m);
-    face.position.set(x + 0.3, y, 0);
-    g.add(face);
-    const tuft = sph(0.09, mat(0x6b430f), 8, 8);
-    tuft.position.set(-1.35, 1.0, 0);
-    g.userData.tail.add ? g.add(tuft) : null;
+    const g = quadruped({ bodyL: 2.3, bodyH: 1.0, bodyW: 0.85, legH: 1.05, legR: 0.14, headS: 0.68,
+                          neckL: 0.35, neckR: 0.3, bodyMat: m, tailL: 1.2, muzzle: 0.55 });
+    const hg = g.userData.headGroup;
+    const maneM = mat(0x8a541c);
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const t = sph(0.2, maneM, 10, 8);
+      t.scale.set(0.7, 1, 1);
+      t.position.set(-0.16, Math.cos(a) * 0.36, Math.sin(a) * 0.36);
+      hg.add(t);
+    }
+    const mane = sph(0.44, maneM, 14, 12);
+    mane.scale.set(0.55, 1.05, 1.05);
+    mane.position.set(-0.14, 0, 0);
+    hg.add(mane);
+    const chin = sph(0.1, maneM, 8, 8);
+    chin.position.set(0.12, -0.4, 0);
+    hg.add(chin);
     addEars(g, 0xc4913f, 0.11);
+    tailTuft(g, 0x5b3a10, 1.2);
     return g;
   },
   elephant() {
     const m = mat(0x9a9aa2);
-    const g = quadruped({ bodyL: 3.4, bodyH: 2.0, bodyW: 1.9, legH: 1.5, legR: 0.34, headS: 1.15, bodyMat: m, tailL: 1.3 });
-    const { x, y } = g.userData.headPos;
-    [[1.15], [-1.15]].forEach(([z]) => {
-      const ear = box(0.1, 1.15, 0.95, mat(0x8b8b93));
-      ear.position.set(x - 0.35, y + 0.1, z * 0.62);
-      ear.rotation.y = z > 0 ? 0.5 : -0.5;
-      g.add(ear);
+    const g = quadruped({ bodyL: 3.4, bodyH: 2.1, bodyW: 2.0, legH: 1.5, legR: 0.3, headS: 1.2,
+                          neckL: 0.5, neckR: 0.55, neckTilt: 0.6, bodyMat: m, tailL: 1.2, muzzle: 0.35 });
+    const hg = g.userData.headGroup;
+    const earM = mat(0x8b8b93);
+    [1, -1].forEach(s => {
+      const ear = sph(0.62, earM, 12, 10);
+      ear.scale.set(0.14, 1.25, 1.0);
+      ear.position.set(-0.2, 0.05, s * 0.62);
+      ear.rotation.y = s * 0.45;
+      hg.add(ear);
     });
-    const trunk = cyl(0.14, 0.24, 1.9, m, 8);
-    trunk.position.set(x + 0.72, y - 0.95, 0);
-    trunk.rotation.z = 0.18;
-    g.add(trunk);
+    /* trunk: drooping segment chain hanging from the face */
+    const trunk = new THREE.Group();
+    trunk.position.set(0.58, -0.18, 0);
+    const s1 = cyl(0.19, 0.24, 0.7, m, 10); s1.position.set(0.14, -0.3, 0); s1.rotation.z = 0.35;
+    const s2 = cyl(0.15, 0.19, 0.7, m, 10); s2.position.set(0.33, -0.92, 0); s2.rotation.z = 0.1;
+    const s3 = cyl(0.1, 0.15, 0.6, m, 10);  s3.position.set(0.32, -1.5, 0);  s3.rotation.z = -0.3;
+    trunk.add(s1, s2, s3);
+    hg.add(trunk);
     g.userData.trunk = trunk;
     const tuskM = mat(0xf5eeda);
-    [[0.3], [-0.3]].forEach(([z]) => {
-      const tusk = cyl(0.05, 0.09, 0.85, tuskM, 8);
-      tusk.position.set(x + 0.6, y - 0.62, z);
-      tusk.rotation.z = 0.5;
-      g.add(tusk);
+    [1, -1].forEach(s => {
+      const tusk = cyl(0.055, 0.095, 0.9, tuskM, 8);
+      tusk.position.set(0.72, -0.52, s * 0.3);
+      tusk.rotation.z = -1.1;
+      hg.add(tusk);
     });
+    tailTuft(g, 0x6e6e76, 1.2);
     return g;
   },
   crocodile() {
-    const m = mat(0x5c7a3a);
+    const m = mat(0x5c7a3a), m2 = mat(0x6b8a46), teethM = mat(0xf5eeda);
     const g = new THREE.Group();
-    const body = box(3.2, 0.55, 1.0, m);
-    body.position.y = 0.45;
+    const body = sph(1, m, 16, 12);
+    body.scale.set(1.7, 0.44, 0.64);
+    body.position.y = 0.48;
     g.add(body);
-    const snout = box(1.5, 0.34, 0.6, mat(0x6b8a46));
-    snout.position.set(2.2, 0.42, 0);
-    g.add(snout);
-    const jawM = mat(0xf5eeda);
-    for (let i = 0; i < 5; i++) {
-      const t1 = cone(0.045, 0.14, jawM, 6);
-      t1.position.set(1.6 + i * 0.28, 0.26, 0.28); t1.rotation.x = Math.PI;
-      const t2 = t1.clone(); t2.position.z = -0.28;
-      g.add(t1, t2);
-    }
-    const eyeM = mat(0xffd447);
-    [[0.32], [-0.32]].forEach(([z]) => {
-      const bump = sph(0.14, m, 8, 8); bump.position.set(1.45, 0.72, z); g.add(bump);
-      const eye = sph(0.06, eyeM, 8, 8); eye.position.set(1.5, 0.78, z); g.add(eye);
-      const pupil = sph(0.028, mat(0x111111), 6, 6); pupil.position.set(1.56, 0.78, z); g.add(pupil);
+    /* head group with a big snapping lower jaw */
+    const hg = new THREE.Group();
+    hg.position.set(1.55, 0.55, 0);
+    g.add(hg);
+    const skull = sph(0.42, m2, 14, 12);
+    skull.scale.set(1.0, 0.62, 0.85);
+    hg.add(skull);
+    const topJaw = sph(0.3, m2, 14, 12);
+    topJaw.scale.set(2.6, 0.42, 0.95);
+    topJaw.position.set(0.72, 0.04, 0);
+    hg.add(topJaw);
+    for (let i = 0; i < 5; i++) [1, -1].forEach(s => {
+      const t = cone(0.035, 0.11, teethM, 6);
+      t.rotation.x = Math.PI;
+      t.position.set(0.35 + i * 0.24, -0.06, s * 0.2);
+      hg.add(t);
     });
-    const tail = cone(0.42, 2.4, mat(0x51692f), 8);
-    tail.rotation.z = Math.PI / 2;
-    tail.position.set(-2.6, 0.45, 0);
-    g.add(tail);
-    g.userData.tail = tail;
+    const jawG = new THREE.Group();
+    jawG.position.set(0.05, -0.12, 0);
+    hg.add(jawG);
+    const lowJaw = sph(0.26, m, 14, 12);
+    lowJaw.scale.set(2.7, 0.35, 0.85);
+    lowJaw.position.set(0.68, -0.02, 0);
+    jawG.add(lowJaw);
+    const mouthIn = sph(0.2, mat(0x8c4550), 10, 8);
+    mouthIn.scale.set(2.4, 0.3, 0.7);
+    mouthIn.position.set(0.66, 0.05, 0);
+    jawG.add(mouthIn);
+    for (let i = 0; i < 4; i++) [1, -1].forEach(s => {
+      const t = cone(0.03, 0.1, teethM, 6);
+      t.position.set(0.4 + i * 0.26, 0.09, s * 0.17);
+      jawG.add(t);
+    });
+    const eyeM = mat(0xffd447);
+    [1, -1].forEach(s => {
+      const bump = sph(0.13, m2, 8, 8); bump.position.set(-0.05, 0.26, s * 0.26); hg.add(bump);
+      const eye = sph(0.06, eyeM, 8, 8); eye.position.set(0.0, 0.32, s * 0.26); hg.add(eye);
+      const pupil = sph(0.028, mat(0x111111), 6, 6); pupil.position.set(0.05, 0.32, s * 0.26); hg.add(pupil);
+    });
+    /* tapering segmented tail that swishes side to side */
+    const tailG = new THREE.Group();
+    tailG.position.set(-1.4, 0.45, 0);
+    let ts = 0.4;
+    for (let i = 0; i < 4; i++) {
+      const seg = sph(1, mat(0x51692f), 10, 8);
+      seg.scale.set(0.55, ts * 0.8, ts);
+      seg.position.set(-0.15 - i * 0.62, 0, 0);
+      ts *= 0.72;
+      tailG.add(seg);
+    }
+    g.add(tailG);
+    g.userData.tail = tailG;
     for (let i = 0; i < 6; i++) {
-      const ridge = cone(0.1, 0.22, mat(0x40571f), 6);
-      ridge.position.set(1.0 - i * 0.55, 0.82, 0);
+      const ridge = cone(0.09, 0.2, mat(0x40571f), 6);
+      ridge.position.set(1.0 - i * 0.5, 0.86, 0);
       g.add(ridge);
     }
-    [[1.1, 0.62], [1.1, -0.62], [-1.1, 0.62], [-1.1, -0.62]].forEach(([xx, zz]) => {
-      const leg = cyl(0.11, 0.13, 0.42, m, 6);
-      leg.position.set(xx, 0.21, zz);
+    [[0.9, 0.58], [0.9, -0.58], [-0.9, 0.58], [-0.9, -0.58]].forEach(([xx, zz]) => {
+      const leg = cyl(0.1, 0.13, 0.45, m, 8);
+      leg.position.set(xx, 0.22, zz);
       g.add(leg);
     });
-    g.userData.headPos = { x: 2.2, y: 0.6 };
+    g.userData.headGroup = hg;
+    g.userData.jaw = jawG;
+    g.userData.headS = 0.9;
     return g;
   },
   monkey() {
-    const m = mat(0x8a7a66);
+    const m = mat(0x8f8272), dark = mat(0x2f2a24);
     const g = new THREE.Group();
-    const body = sph(0.42, m, 12, 10); body.scale.y = 1.25; body.position.y = 1.05; g.add(body);
-    const head = sph(0.32, m, 12, 10); head.position.y = 1.75; g.add(head);
-    const face = sph(0.22, mat(0x2f2a24), 10, 8); face.scale.z = 0.55; face.position.set(0.18, 1.75, 0); face.rotation.y = Math.PI / 2;
-    face.position.set(0.2, 1.75, 0); g.add(face);
+    const body = sph(0.42, m, 14, 12); body.scale.set(0.95, 1.3, 0.85); body.position.y = 1.0; g.add(body);
+    const chest = sph(0.3, mat(0xb8ab97), 12, 10); chest.scale.set(0.6, 1.0, 0.8); chest.position.set(0.22, 1.05, 0); g.add(chest);
+    const hg = new THREE.Group(); hg.position.set(0.05, 1.78, 0); g.add(hg);
+    const head = sph(0.3, m, 14, 12); hg.add(head);
+    const face = sph(0.2, dark, 12, 10); face.scale.set(0.7, 0.95, 0.85); face.position.set(0.17, 0.02, 0); hg.add(face);
+    const muzzleUp = sph(0.12, dark, 10, 8); muzzleUp.scale.set(1.1, 0.6, 0.9); muzzleUp.position.set(0.26, -0.06, 0); hg.add(muzzleUp);
+    const jawG = new THREE.Group(); jawG.position.set(0.1, -0.15, 0); hg.add(jawG);
+    const jaw = sph(0.1, dark, 10, 8); jaw.scale.set(1.5, 0.55, 0.9); jaw.position.set(0.17, -0.01, 0); jawG.add(jaw);
+    const mouthIn = sph(0.08, mat(0x8c4550), 8, 8); mouthIn.scale.set(1.25, 0.4, 0.7); mouthIn.position.set(0.16, 0.03, 0); jawG.add(mouthIn);
     const eyeM = mat(0xffffff);
-    [[0.12], [-0.12]].forEach(([z]) => {
-      const e = sph(0.05, eyeM, 8, 8); e.position.set(0.33, 1.82, z); g.add(e);
-      const p = sph(0.025, mat(0x111111), 6, 6); p.position.set(0.37, 1.82, z); g.add(p);
+    [1, -1].forEach(s => {
+      const e = sph(0.05, eyeM, 8, 8); e.position.set(0.26, 0.1, s * 0.1); hg.add(e);
+      const p = sph(0.025, mat(0x111111), 6, 6); p.position.set(0.3, 0.1, s * 0.11); hg.add(p);
+      const ear = sph(0.09, m, 8, 8); ear.position.set(-0.06, 0.13, s * 0.29); hg.add(ear);
     });
-    [[0.28], [-0.28]].forEach(([z]) => {
-      const ear = sph(0.09, m, 8, 8); ear.position.set(-0.02, 1.9, z); g.add(ear);
-    });
-    [[0.3], [-0.3]].forEach(([z]) => {
-      const arm = cyl(0.07, 0.06, 0.8, m, 6);
-      arm.position.set(0.1, 0.95, z); arm.rotation.x = z > 0 ? 0.5 : -0.5;
+    [1, -1].forEach(s => {
+      const arm = cyl(0.06, 0.05, 0.8, m, 8);
+      arm.position.set(0.1, 0.9, s * 0.32); arm.rotation.x = s * 0.5;
       g.add(arm);
-    });
-    [[0.18], [-0.18]].forEach(([z]) => {
-      const leg = cyl(0.08, 0.07, 0.6, m, 6);
-      leg.position.set(0, 0.42, z);
+      const hand = sph(0.07, dark, 8, 8); hand.position.set(0.1, 0.52, s * 0.5); g.add(hand);
+      const leg = cyl(0.07, 0.06, 0.6, m, 8);
+      leg.position.set(0, 0.4, s * 0.18);
       g.add(leg);
+      const foot = sph(0.08, dark, 8, 8); foot.scale.set(1.5, 0.6, 1); foot.position.set(0.06, 0.08, s * 0.18); g.add(foot);
     });
-    const tail = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.05, 8, 14, Math.PI * 1.3), m);
+    const tail = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.045, 10, 16, Math.PI * 1.3), m);
     tail.position.set(-0.45, 1.15, 0); tail.rotation.y = Math.PI / 2; tail.rotation.x = 0.4;
     g.add(tail);
     g.userData.tail = tail;
-    g.userData.headPos = { x: 0.2, y: 1.75 };
+    g.userData.headGroup = hg;
+    g.userData.jaw = jawG;
+    g.userData.headS = 0.55;
     return g;
   },
   giraffe() {
     const m = patternMaterial('patches', '#e9c078', '#96601e');
-    const g = quadruped({ bodyL: 2.4, bodyH: 1.3, bodyW: 1.0, legH: 2.3, legR: 0.15, headS: 0.55, neckL: 2.6, neckR: 0.26, bodyMat: m, tailL: 1.4 });
-    const { x, y } = g.userData.headPos;
+    const g = quadruped({ bodyL: 2.4, bodyH: 1.3, bodyW: 1.0, legH: 2.3, legR: 0.14, headS: 0.55,
+                          neckL: 2.6, neckR: 0.24, neckTilt: 0.3, bodyMat: m, tailL: 1.4, muzzle: 0.65 });
+    const hg = g.userData.headGroup;
     const ossM = mat(0x8a5a1e);
-    [[0.14], [-0.14]].forEach(([z]) => {
+    [1, -1].forEach(s => {
       const horn = cyl(0.035, 0.035, 0.3, ossM, 6);
-      horn.position.set(x - 0.05, y + 0.42, z);
+      horn.position.set(-0.05, 0.42, s * 0.13);
       const knob = sph(0.06, ossM, 8, 8);
-      knob.position.set(x - 0.05, y + 0.58, z);
-      g.add(horn, knob);
+      knob.position.set(-0.05, 0.58, s * 0.13);
+      hg.add(horn, knob);
     });
+    /* short mane running down the back of the neck */
+    const maneM = mat(0x8a5a1e);
+    for (let i = 0; i < 7; i++) {
+      const tuft = sph(0.07, maneM, 6, 6);
+      tuft.position.set(-0.26, -1.1 + i * 0.36, 0);
+      g.userData.neckMesh.add(tuft);
+    }
     addEars(g, 0xe9c078, 0.1);
+    tailTuft(g, 0x5b3a10, 1.4);
     return g;
   },
   zebra() {
     const m = patternMaterial('stripes', '#f2f0ea', '#1c1c1c');
-    const g = quadruped({ bodyL: 2.1, bodyH: 1.0, bodyW: 0.8, legH: 1.2, legR: 0.12, headS: 0.55, neckL: 0.9, neckR: 0.26, bodyMat: m, tailL: 1.0 });
+    const g = quadruped({ bodyL: 2.1, bodyH: 1.0, bodyW: 0.8, legH: 1.2, legR: 0.11, headS: 0.55,
+                          neckL: 0.9, neckR: 0.24, bodyMat: m, tailL: 1.0, muzzle: 0.75 });
     addEars(g, 0xf2f0ea, 0.11);
     const maneM = mat(0x1c1c1c);
-    const mane = box(0.9, 0.22, 0.08, maneM);
-    mane.position.set(1.25, 2.35, 0);
-    mane.rotation.z = -0.4;
-    g.add(mane);
+    for (let i = 0; i < 5; i++) {
+      const tuft = sph(0.08, maneM, 6, 6);
+      tuft.scale.set(0.8, 1.3, 0.5);
+      tuft.position.set(-0.26, -0.35 + i * 0.2, 0);
+      g.userData.neckMesh.add(tuft);
+    }
+    const muzzleDark = sph(0.14, mat(0x1c1c1c), 10, 8);
+    muzzleDark.scale.set(1.3, 0.8, 1.0);
+    muzzleDark.position.set(0.46, -0.08, 0);
+    g.userData.headGroup.add(muzzleDark);
+    tailTuft(g, 0x1c1c1c, 1.0);
     return g;
   },
   wildebeest() {
     const m = mat(0x6e625a);
-    const g = quadruped({ bodyL: 2.3, bodyH: 1.15, bodyW: 0.9, legH: 1.15, legR: 0.13, headS: 0.6, bodyMat: m, tailL: 1.3 });
-    const { x, y } = g.userData.headPos;
+    const g = quadruped({ bodyL: 2.3, bodyH: 1.15, bodyW: 0.9, legH: 1.15, legR: 0.12, headS: 0.62,
+                          neckL: 0.4, neckR: 0.26, bodyMat: m, tailL: 1.3, muzzle: 0.65 });
+    const hg = g.userData.headGroup;
     const hornM = mat(0x3a3230);
-    [[0.3], [-0.3]].forEach(([z]) => {
-      const horn = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.045, 8, 10, Math.PI * 0.9), hornM);
-      horn.position.set(x - 0.05, y + 0.28, z);
-      horn.rotation.x = z > 0 ? -0.8 : 0.8;
-      g.add(horn);
+    [1, -1].forEach(s => {
+      const horn = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.045, 8, 12, Math.PI * 0.9), hornM);
+      horn.position.set(-0.02, 0.28, s * 0.26);
+      horn.rotation.x = s * -0.8;
+      hg.add(horn);
     });
-    const beard = box(0.5, 0.3, 0.06, mat(0x4a413b));
-    beard.position.set(x + 0.15, y - 0.45, 0);
-    g.add(beard);
-    const hump = sph(0.5, m, 10, 8);
+    const beard = sph(0.14, mat(0x4a413b), 8, 8);
+    beard.scale.set(1.2, 1.8, 0.5);
+    beard.position.set(0.2, -0.42, 0);
+    hg.add(beard);
+    const hump = sph(0.5, m, 12, 10);
     hump.scale.set(1.2, 0.7, 0.85);
-    hump.position.set(0.7, 2.25, 0);
+    hump.position.set(0.7, 2.3, 0);
     g.add(hump);
+    tailTuft(g, 0x3a3230, 1.3);
     return g;
   },
   tiger() {
     const m = patternMaterial('stripes', '#e07b28', '#1c1c1c');
-    const g = quadruped({ bodyL: 2.5, bodyH: 1.05, bodyW: 0.9, legH: 1.0, legR: 0.16, headS: 0.65, bodyMat: m, tailL: 1.35 });
-    const { x, y } = g.userData.headPos;
-    const muzzle = box(0.32, 0.3, 0.4, mat(0xf5f0e6));
-    muzzle.position.set(x + 0.42, y - 0.12, 0);
-    g.add(muzzle);
+    const g = quadruped({ bodyL: 2.5, bodyH: 1.05, bodyW: 0.9, legH: 1.0, legR: 0.15, headS: 0.65,
+                          neckL: 0.35, neckR: 0.3, bodyMat: m, headMat: mat(0xdd7a2a), tailL: 1.35, muzzle: 0.55 });
+    const hg = g.userData.headGroup;
+    [1, -1].forEach(s => {
+      const cheek = sph(0.13, mat(0xf5f0e6), 10, 8);
+      cheek.scale.set(1.1, 0.9, 0.9);
+      cheek.position.set(0.3, -0.1, s * 0.14);
+      hg.add(cheek);
+    });
+    const browM = mat(0xf5f0e6);
+    [1, -1].forEach(s => {
+      const brow = sph(0.06, browM, 6, 6);
+      brow.position.set(0.22, 0.28, s * 0.19);
+      hg.add(brow);
+    });
     addEars(g, 0xe07b28, 0.12);
+    tailTuft(g, 0x1c1c1c, 1.35);
     return g;
   },
   rhino() {
     const m = mat(0xa8a09a);
-    const g = quadruped({ bodyL: 3.0, bodyH: 1.6, bodyW: 1.5, legH: 1.0, legR: 0.28, headS: 0.95, bodyMat: m, tailL: 1.0 });
-    const { x, y } = g.userData.headPos;
+    const g = quadruped({ bodyL: 3.0, bodyH: 1.6, bodyW: 1.5, legH: 1.0, legR: 0.26, headS: 0.95,
+                          neckL: 0.35, neckR: 0.5, neckTilt: 0.7, bodyMat: m, tailL: 1.0, muzzle: 0.7 });
+    const hg = g.userData.headGroup;
     const hornM = mat(0xd8cfc0);
-    const horn1 = cone(0.16, 0.75, hornM, 8);
-    horn1.position.set(x + 0.55, y + 0.35, 0);
+    const horn1 = cone(0.15, 0.72, hornM, 10);
+    horn1.position.set(0.62, 0.3, 0);
     horn1.rotation.z = -0.25;
-    const horn2 = cone(0.1, 0.35, hornM, 8);
-    horn2.position.set(x + 0.15, y + 0.5, 0);
-    g.add(horn1, horn2);
+    const horn2 = cone(0.09, 0.32, hornM, 10);
+    horn2.position.set(0.28, 0.42, 0);
+    hg.add(horn1, horn2);
     addEars(g, 0x968e88, 0.12);
     return g;
   },
   hippo() {
     const m = mat(0x9a7d8a);
-    const g = quadruped({ bodyL: 3.0, bodyH: 1.5, bodyW: 1.6, legH: 0.7, legR: 0.26, headS: 1.0, bodyMat: m, tailL: 0.7 });
-    const { x, y } = g.userData.headPos;
-    const snout = box(0.85, 0.7, 0.95, mat(0xa98a97));
-    snout.position.set(x + 0.55, y - 0.3, 0);
-    g.add(snout);
+    const g = quadruped({ bodyL: 3.0, bodyH: 1.5, bodyW: 1.6, legH: 0.7, legR: 0.26, headS: 1.05,
+                          neckL: 0.3, neckR: 0.55, neckTilt: 0.75, bodyMat: m,
+                          headMat: mat(0xa98a97), tailL: 0.7, muzzle: 0.9 });
+    const hg = g.userData.headGroup;
+    /* big bottom teeth that show when she talks */
     const toothM = mat(0xf5eeda);
-    [[0.32], [-0.32]].forEach(([z]) => {
-      const tooth = box(0.09, 0.2, 0.09, toothM);
-      tooth.position.set(x + 0.92, y - 0.62, z);
-      g.add(tooth);
-    });
-    [[0.45], [-0.45]].forEach(([z]) => {
+    [1, -1].forEach(s => {
+      const tooth = box(0.09, 0.22, 0.09, toothM);
+      tooth.position.set(0.95, 0.1, s * 0.3);
+      g.userData.jaw.add(tooth);
+      const nostril = sph(0.07, mat(0x7c5f6d), 8, 6);
+      nostril.position.set(0.95, 0.12, s * 0.18);
+      hg.add(nostril);
       const ear = sph(0.1, m, 8, 8);
-      ear.position.set(x - 0.25, y + 0.55, z);
-      g.add(ear);
+      ear.position.set(-0.3, 0.55, s * 0.42);
+      hg.add(ear);
     });
     return g;
   },
   meerkat() {
-    const m = mat(0xc9a76a);
+    const m = mat(0xc9a76a), m2 = mat(0xb08d50);
     const g = new THREE.Group();
-    const body = cyl(0.16, 0.22, 0.75, m, 10);
-    body.position.y = 0.65; g.add(body);
-    const head = sph(0.18, m, 10, 8); head.position.y = 1.15; g.add(head);
-    const snout = cone(0.07, 0.16, mat(0xb08d50), 8);
-    snout.rotation.x = Math.PI / 2;
-    snout.position.set(0.16, 1.1, 0);
-    snout.rotation.z = -Math.PI / 2;
-    g.add(snout);
-    const patchM = mat(0x2f2418);
-    [[0.09], [-0.09]].forEach(([z]) => {
-      const patch = sph(0.045, patchM, 6, 6); patch.position.set(0.14, 1.2, z); g.add(patch);
-    });
-    [[0.1], [-0.1]].forEach(([z]) => {
-      const arm = cyl(0.035, 0.03, 0.3, m, 6);
-      arm.position.set(0.1, 0.75, z); arm.rotation.x = z > 0 ? 0.3 : -0.3;
+    const body = sph(0.22, m, 14, 12);
+    body.scale.set(0.9, 1.75, 0.8);
+    body.position.y = 0.62;
+    g.add(body);
+    const bellyP = sph(0.15, mat(0xe0c493), 10, 8);
+    bellyP.scale.set(0.6, 1.3, 0.8);
+    bellyP.position.set(0.12, 0.6, 0);
+    g.add(bellyP);
+    const hg = new THREE.Group(); hg.position.set(0.02, 1.16, 0); g.add(hg);
+    const head = sph(0.17, m, 14, 12); hg.add(head);
+    const snout = sph(0.08, m2, 10, 8);
+    snout.scale.set(1.7, 0.8, 0.9);
+    snout.position.set(0.13, -0.03, 0);
+    hg.add(snout);
+    const nose = sph(0.035, mat(0x2b2320), 8, 6); nose.position.set(0.26, -0.02, 0); hg.add(nose);
+    const jawG = new THREE.Group(); jawG.position.set(0.03, -0.1, 0); hg.add(jawG);
+    const jaw = sph(0.06, m2, 8, 8); jaw.scale.set(1.9, 0.55, 0.8); jaw.position.set(0.1, 0, 0); jawG.add(jaw);
+    const patchM = mat(0x2f2418), eyeM = mat(0x141414);
+    [1, -1].forEach(s => {
+      const patch = sph(0.05, patchM, 8, 6); patch.scale.set(0.7, 1, 1); patch.position.set(0.11, 0.06, s * 0.09); hg.add(patch);
+      const eye = sph(0.025, eyeM, 6, 6); eye.position.set(0.15, 0.06, s * 0.09); hg.add(eye);
+      const ear = sph(0.035, m2, 6, 6); ear.position.set(-0.06, 0.09, s * 0.15); hg.add(ear);
+      const arm = cyl(0.03, 0.026, 0.28, m, 6);
+      arm.position.set(0.08, 0.78, s * 0.1); arm.rotation.x = s * 0.25;
       g.add(arm);
+      const leg = cyl(0.045, 0.055, 0.3, m, 6);
+      leg.position.set(0, 0.15, s * 0.09); g.add(leg);
+      const foot = sph(0.05, m2, 6, 6); foot.scale.set(1.6, 0.5, 1); foot.position.set(0.04, 0.02, s * 0.09); g.add(foot);
     });
-    [[0.09], [-0.09]].forEach(([z]) => {
-      const leg = cyl(0.05, 0.06, 0.3, m, 6);
-      leg.position.set(0, 0.15, z); g.add(leg);
-    });
-    const tail = cyl(0.035, 0.02, 0.55, mat(0xb08d50), 6);
+    const tail = cyl(0.035, 0.02, 0.55, m2, 6);
     tail.position.set(-0.16, 0.35, 0); tail.rotation.z = 0.5;
     g.add(tail);
+    const tailTip = sph(0.035, mat(0x2f2418), 6, 6); tailTip.position.set(0, -0.27, 0); tail.add(tailTip);
     g.userData.tail = tail;
-    g.userData.headPos = { x: 0, y: 1.15 };
+    g.userData.headGroup = hg;
+    g.userData.jaw = jawG;
+    g.userData.headS = 0.35;
     return g;
   },
 };
 /* ============================ WORLD ============================ */
-const ground = new THREE.Mesh(new THREE.CircleGeometry(200, 56), mat(0xc9b35c));
+function addShadows(obj) { obj.traverse(o => { if (o.isMesh) o.castShadow = true; }); }
+
+/* mottled savanna ground texture */
+const groundTex = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = '#c9b35c'; g.fillRect(0, 0, 512, 512);
+  const tones = ['#c2aa52', '#d1bc66', '#bfa54e', '#d6c273', '#b89d49', '#cdb75f'];
+  for (let i = 0; i < 14; i++) {
+    g.globalAlpha = 0.12;
+    g.fillStyle = i % 2 ? '#a98f42' : '#dcc97c';
+    g.beginPath();
+    g.arc(Math.random() * 512, Math.random() * 512, 40 + Math.random() * 80, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = 0.55;
+  for (let i = 0; i < 1600; i++) {
+    g.fillStyle = tones[i % tones.length];
+    g.beginPath();
+    g.arc(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2.5, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(16, 16);
+  return tex;
+})();
+const ground = new THREE.Mesh(new THREE.CircleGeometry(200, 64),
+  new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1, metalness: 0 }));
 ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
 scene.add(ground);
 
 function makeAcacia(s = 1) {
   const g = new THREE.Group();
-  const trunk = cyl(0.18 * s, 0.32 * s, 3.6 * s, mat(0x7a5230), 8);
-  trunk.position.y = 1.8 * s;
+  const trunkM = mat(0x6e4a26), leafM = mat(0x55823a), leafM2 = mat(0x628f42);
+  const trunk = cyl(0.14 * s, 0.3 * s, 2.7 * s, trunkM, 8);
+  trunk.position.y = 1.35 * s;
+  trunk.rotation.z = 0.06;
   g.add(trunk);
-  const canopy = cyl(2.6 * s, 1.1 * s, 0.9 * s, mat(0x5c8a3a), 12);
-  canopy.position.y = 3.9 * s;
-  g.add(canopy);
+  [[0.55, 0.45], [-0.5, 0.3], [0.1, -0.6]].forEach(([bx, bz], i) => {
+    const br = cyl(0.055 * s, 0.11 * s, 1.5 * s, trunkM, 7);
+    br.position.set(bx * 0.8 * s, (2.9 + i * 0.12) * s, bz * 0.8 * s);
+    br.rotation.z = -bx * 0.6;
+    br.rotation.x = bz * 0.6;
+    g.add(br);
+    const pad = sph(1, i % 2 ? leafM : leafM2, 12, 8);
+    pad.scale.set(1.5 * s, 0.3 * s, 1.5 * s);
+    pad.position.set(bx * 1.7 * s, (3.65 + i * 0.15) * s, bz * 1.7 * s);
+    g.add(pad);
+  });
+  const crown = sph(1, leafM, 14, 10);
+  crown.scale.set(2.3 * s, 0.4 * s, 2.3 * s);
+  crown.position.y = 3.95 * s;
+  g.add(crown);
+  addShadows(g);
   return g;
 }
 function makeTree(s = 1) {
   const g = new THREE.Group();
-  const trunk = cyl(0.22 * s, 0.35 * s, 2.6 * s, mat(0x6e4a28), 8);
+  const trunk = cyl(0.2 * s, 0.34 * s, 2.6 * s, mat(0x6e4a28), 8);
   trunk.position.y = 1.3 * s;
   g.add(trunk);
-  const canopy = sph(1.7 * s, mat(0x4d7a33), 12, 10);
-  canopy.position.y = 3.2 * s;
-  g.add(canopy);
+  [[0, 3.3, 0, 1.6], [0.9, 2.9, 0.5, 1.1], [-0.8, 3.0, -0.5, 1.15], [0.2, 2.7, -0.9, 1.0]].forEach(([x, y, z, r]) => {
+    const puff = sph(r * s, mat(0x4d7a33), 12, 10);
+    puff.position.set(x * s, y * s, z * s);
+    g.add(puff);
+  });
+  addShadows(g);
+  return g;
+}
+function makeBush(s = 1) {
+  const g = new THREE.Group();
+  const m = mat(0x5c7a3a), m2 = mat(0x4d6b30);
+  for (let i = 0; i < 4; i++) {
+    const puff = sph((0.4 + Math.random() * 0.35) * s, i % 2 ? m : m2, 10, 8);
+    puff.position.set((Math.random() - 0.5) * s, 0.35 * s, (Math.random() - 0.5) * s);
+    puff.scale.y = 0.8;
+    g.add(puff);
+  }
+  addShadows(g);
+  return g;
+}
+function makeTermiteMound(s = 1) {
+  const g = new THREE.Group();
+  const m = mat(0xb5834e);
+  [[0, 0, 0, 0.7, 2.2], [0.5, 0, 0.3, 0.45, 1.4], [-0.45, 0, -0.2, 0.4, 1.1]].forEach(([x, , z, r, h]) => {
+    const spike = cone(r * s, h * s, m, 8);
+    spike.position.set(x * s, h * s / 2, z * s);
+    g.add(spike);
+  });
+  addShadows(g);
   return g;
 }
 function makeRock(r, color = 0x8f8a80) {
   const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat(color));
   rock.position.y = r * 0.55;
   rock.rotation.set(Math.random(), Math.random(), Math.random());
+  rock.castShadow = true;
   return rock;
 }
 function makeGrassTuft() {
   const g = new THREE.Group();
-  const m = mat(0xb9a545);
-  for (let i = 0; i < 4; i++) {
-    const blade = cone(0.05, 0.55 + Math.random() * 0.3, m, 5);
-    blade.position.set((Math.random() - 0.5) * 0.4, 0.3, (Math.random() - 0.5) * 0.4);
-    blade.rotation.z = (Math.random() - 0.5) * 0.4;
+  const m = Math.random() < 0.5 ? mat(0xb9a545) : mat(0x9aa04a);
+  for (let i = 0; i < 6; i++) {
+    const blade = cone(0.045, 0.55 + Math.random() * 0.35, m, 5);
+    blade.position.set((Math.random() - 0.5) * 0.5, 0.3, (Math.random() - 0.5) * 0.5);
+    blade.rotation.z = (Math.random() - 0.5) * 0.5;
+    blade.rotation.x = (Math.random() - 0.5) * 0.3;
     g.add(blade);
   }
   return g;
@@ -628,19 +898,43 @@ const STOPS = [
 const road = new THREE.Mesh(new THREE.RingGeometry(STOP_R - 11.5, STOP_R - 7.5, 72), mat(0xcf9f62));
 road.rotation.x = -Math.PI / 2;
 road.position.y = 0.02;
+road.receiveShadow = true;
 scene.add(road);
 
 /* watering hole shared by croc & hippo (between their stops) */
 const waterAngle = (300 + 330) / 2 * Math.PI / 180;
 const waterPos = new THREE.Vector3(Math.cos(waterAngle) * STOP_R, 0, Math.sin(waterAngle) * STOP_R);
-const water = new THREE.Mesh(new THREE.CircleGeometry(16, 32), mat(0x4fa8d8));
+const water = new THREE.Mesh(new THREE.CircleGeometry(16, 40),
+  new THREE.MeshStandardMaterial({ color: 0x3f9fd4, roughness: 0.15, metalness: 0.25, transparent: true, opacity: 0.94 }));
 water.rotation.x = -Math.PI / 2;
 water.position.set(waterPos.x, 0.04, waterPos.z);
+water.receiveShadow = true;
 scene.add(water);
-const shore = new THREE.Mesh(new THREE.RingGeometry(16, 18.5, 32), mat(0xd9c27e));
+const shore = new THREE.Mesh(new THREE.RingGeometry(16, 18.5, 40), mat(0xd9c27e));
 shore.rotation.x = -Math.PI / 2;
 shore.position.set(waterPos.x, 0.03, waterPos.z);
+shore.receiveShadow = true;
 scene.add(shore);
+/* reeds around the shoreline */
+for (let i = 0; i < 16; i++) {
+  const a = Math.random() * Math.PI * 2;
+  const r = 16.3 + Math.random() * 2;
+  const reed = new THREE.Group();
+  const rm = mat(0x5f7d38);
+  for (let j = 0; j < 5; j++) {
+    const stalk = cyl(0.025, 0.035, 1.4 + Math.random() * 0.9, rm, 5);
+    stalk.position.set((Math.random() - 0.5) * 0.7, 0.8, (Math.random() - 0.5) * 0.7);
+    stalk.rotation.z = (Math.random() - 0.5) * 0.25;
+    reed.add(stalk);
+    const top = sph(0.06, mat(0x8a6a3a), 5, 4);
+    top.scale.y = 2.2;
+    top.position.set(stalk.position.x, stalk.position.y + 0.75, stalk.position.z);
+    reed.add(top);
+  }
+  reed.position.set(waterPos.x + Math.cos(a) * r, 0, waterPos.z + Math.sin(a) * r);
+  addShadows(reed);
+  scene.add(reed);
+}
 
 const interactables = [];   // { group, key, radius }
 const animators = [];       // per-frame animal animations
@@ -656,14 +950,24 @@ function placeAnimal(key, pos, faceAngle, scale = 1) {
               key === 'crocodile' ? 2.4 : key === 'monkey' ? 3.0 : 3.6;
   label.position.set(0, top, 0);
   g.add(label);
+  g.userData.label = label;
+  addShadows(g);
   scene.add(g);
   interactables.push({ group: g, key, radius: key === 'elephant' || key === 'rhino' || key === 'hippo' ? 7 : 5.5 });
   const phase = Math.random() * Math.PI * 2;
+  const ud = g.userData;
+  const chestSY = ud.chest ? ud.chest.scale.y : 1;
   animators.push(t => {
-    if (g.userData.tail) g.userData.tail.rotation.x = Math.sin(t * 2.2 + phase) * 0.25;
-    if (g.userData.head) g.userData.head.position.y = g.userData.headPos.y + Math.sin(t * 1.4 + phase) * 0.05;
-    if (g.userData.trunk) g.userData.trunk.rotation.z = 0.18 + Math.sin(t * 1.1 + phase) * 0.12;
-    if (key === 'meerkat') g.rotation.y = faceAngle + Math.sin(t * 0.7 + phase) * 0.5;
+    if (ud.tail) {
+      if (key === 'crocodile') ud.tail.rotation.y = Math.sin(t * 1.5 + phase) * 0.2;
+      else ud.tail.rotation.x = Math.sin(t * 2.2 + phase) * 0.25;
+    }
+    if (ud.chest) ud.chest.scale.y = chestSY * (1 + Math.sin(t * 1.9 + phase) * 0.02);   // breathing
+    if (ud.trunk) ud.trunk.rotation.z = 0.04 + Math.sin(t * 1.1 + phase) * 0.1;
+    if (dialogAnimal && dialogAnimal.group === g) return;   // talking animation takes over
+    if (ud.headGroup) ud.headGroup.rotation.z = Math.sin(t * 1.3 + phase) * 0.05;
+    if (ud.neckGroup) ud.neckGroup.rotation.y = Math.sin(t * 0.5 + phase) * 0.18;
+    if (key === 'meerkat') g.rotation.y = (ud.homeYaw ?? faceAngle) + Math.sin(t * 0.7 + phase) * 0.5;
   });
   return g;
 }
@@ -686,6 +990,7 @@ interactables.forEach(it => {
     const toWater = new THREE.Vector3().subVectors(waterPos, p).setLength(4.5);
     it.group.position.add(toWater);
   }
+  it.group.userData.homeYaw = it.group.rotation.y;
 });
 
 /* scenery scattered outside & inside the ring */
@@ -701,6 +1006,18 @@ for (let i = 0; i < 10; i++) {
   const t = Math.random() < 0.5 ? makeAcacia(rnd(0.8, 1.2)) : makeRock(rnd(0.8, 1.8));
   t.position.set(Math.cos(a) * r, t.position.y, Math.sin(a) * r);
   scene.add(t);
+}
+for (let i = 0; i < 14; i++) {
+  const a = rnd(0, Math.PI * 2), r = rnd(12, 140);
+  const b = makeBush(rnd(0.8, 1.6));
+  b.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  scene.add(b);
+}
+for (let i = 0; i < 5; i++) {
+  const a = rnd(0, Math.PI * 2), r = rnd(70, 120);
+  const tm = makeTermiteMound(rnd(0.8, 1.4));
+  tm.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  scene.add(tm);
 }
 for (let i = 0; i < 90; i++) {
   const a = rnd(0, Math.PI * 2), r = rnd(5, 150);
@@ -763,6 +1080,7 @@ scene.add(mTree);
     pal.scale.setScalar(rnd(0.75, 0.95));
     pal.position.copy(leader.position).add(new THREE.Vector3(rnd(-7, 7), 0, rnd(4, 10)));
     pal.rotation.y = rnd(0, Math.PI * 2);
+    addShadows(pal);
     scene.add(pal);
     const phase = rnd(0, 6.28);
     animators.push(t => { if (pal.userData.tail) pal.userData.tail.rotation.x = Math.sin(t * 2 + phase) * 0.3; });
@@ -775,11 +1093,13 @@ for (let i = 0; i < 3; i++) {
   pal.scale.setScalar(rnd(0.7, 0.9));
   pal.position.copy(mk.position).add(new THREE.Vector3(rnd(-3, 3), 0, rnd(2, 5)));
   pal.rotation.y = rnd(0, 6.28);
+  addShadows(pal);
   scene.add(pal);
 }
 /* meerkat mound */
 const mound = cone(2.2, 1.1, mat(0xc2a06a), 10);
 mound.position.copy(mk.position).add(new THREE.Vector3(-2, 0.4, -2));
+mound.castShadow = true;
 scene.add(mound);
 
 /* ============================ PLAYER ============================ */
@@ -810,6 +1130,7 @@ function makeRanger() {
 }
 const player = makeRanger();
 player.position.set(STOP_R - 20, 0, 6);
+addShadows(player);
 scene.add(player);
 let playerAngle = Math.PI;
 
@@ -863,6 +1184,7 @@ const truck = makeTruck();
 truck.position.copy(stopData[0].truckPos);
 truck.position.x -= 6;
 truck.rotation.y = Math.PI / 2;
+addShadows(truck);
 scene.add(truck);
 
 /* truck tour state */
@@ -883,6 +1205,8 @@ function driveToStop(i) {
 /* ============================ INPUT ============================ */
 const keys = {};
 let dialogOpen = false;
+let dialogAnimal = null;    // the animal we're chatting with
+let speakingNow = false;    // true while a voice clip / TTS is playing
 let nearAnimal = null;
 let nearTruck = false;
 
@@ -999,13 +1323,13 @@ function speakTTS(text, profile) {
   const voice = pool.length ? pool[profile.idx % pool.length] : null;
   const emojiEl = document.getElementById('dialogEmoji');
   let remaining = parts.length;
-  const done = () => { if (--remaining <= 0) emojiEl.classList.remove('speaking'); };
+  const done = () => { if (--remaining <= 0) { emojiEl.classList.remove('speaking'); speakingNow = false; } };
   parts.forEach(part => {
     const u = new SpeechSynthesisUtterance(part.trim());
     if (voice) u.voice = voice;
     u.pitch = profile.pitch;
     u.rate = profile.rate;
-    u.onstart = () => emojiEl.classList.add('speaking');
+    u.onstart = () => { emojiEl.classList.add('speaking'); speakingNow = true; };
     u.onend = done;
     u.onerror = done;
     synth.speak(u);
@@ -1019,9 +1343,9 @@ function speak(clip, text, profile) {
   const emojiEl = document.getElementById('dialogEmoji');
   const a = new Audio('audio/' + clip + '.mp3');
   currentAudio = a;
-  a.onplay = () => emojiEl.classList.add('speaking');
-  a.onended = () => emojiEl.classList.remove('speaking');
-  a.onerror = () => { emojiEl.classList.remove('speaking'); speakTTS(text, profile); };
+  a.onplay = () => { emojiEl.classList.add('speaking'); speakingNow = true; };
+  a.onended = () => { emojiEl.classList.remove('speaking'); speakingNow = false; };
+  a.onerror = () => { emojiEl.classList.remove('speaking'); speakingNow = false; speakTTS(text, profile); };
   a.play().catch(() => speakTTS(text, profile));
 }
 function stopSpeaking() {
@@ -1031,6 +1355,7 @@ function stopSpeaking() {
     currentAudio = null;
   }
   if (synth) synth.cancel();
+  speakingNow = false;
   document.getElementById('dialogEmoji').classList.remove('speaking');
 }
 const voiceBtn = document.getElementById('voiceBtn');
@@ -1052,6 +1377,8 @@ const promptEl = document.getElementById('prompt');
 function openDialog(it) {
   const d = ANIMALS[it.key];
   dialogOpen = true;
+  dialogAnimal = it;
+  if (it.group.userData.label) it.group.userData.label.visible = false;
   document.getElementById('dialogEmoji').textContent = d.emoji;
   document.getElementById('dialogName').textContent = d.name;
   document.getElementById('dialogSub').textContent = d.sub;
@@ -1077,6 +1404,13 @@ function openDialog(it) {
 }
 function closeDialog() {
   dialogOpen = false;
+  if (dialogAnimal) {
+    const ud = dialogAnimal.group.userData;
+    if (ud.jaw) ud.jaw.rotation.z = 0;
+    if (ud.headGroup) ud.headGroup.rotation.z = 0;
+    if (ud.label) ud.label.visible = true;
+    dialogAnimal = null;
+  }
   dialogEl.style.display = 'none';
   stopSpeaking();
 }
@@ -1094,6 +1428,8 @@ document.getElementById('startBtn').addEventListener('click', () => {
 /* ============================ GAME LOOP ============================ */
 const clock = new THREE.Clock();
 const camTarget = new THREE.Vector3();
+const headWorld = new THREE.Vector3();
+const backDir = new THREE.Vector3();
 
 function animate() {
   requestAnimationFrame(animate);
@@ -1104,6 +1440,23 @@ function step() {
   const t = clock.elapsedTime;
 
   animators.forEach(fn => fn(t));
+
+  /* talking animation: turn toward the kid, flap the jaw, nod along */
+  if (dialogAnimal) {
+    const g = dialogAnimal.group, ud = g.userData;
+    const dx = player.position.x - g.position.x, dz = player.position.z - g.position.z;
+    if (dx * dx + dz * dz > 0.05) {
+      const targetYaw = Math.atan2(-dz, dx);
+      let da = targetYaw - g.rotation.y;
+      while (da > Math.PI) da -= Math.PI * 2;
+      while (da < -Math.PI) da += Math.PI * 2;
+      g.rotation.y += da * Math.min(1, dt * 4);
+    }
+    const bigMouth = dialogAnimal.key === 'crocodile' || dialogAnimal.key === 'hippo';
+    const open = speakingNow ? 0.1 + Math.abs(Math.sin(t * 13)) * (bigMouth ? 0.38 : 0.28) : 0;
+    if (ud.jaw) ud.jaw.rotation.z += (-open - ud.jaw.rotation.z) * Math.min(1, dt * 16);
+    if (ud.headGroup) ud.headGroup.rotation.z = speakingNow ? Math.sin(t * 6.5) * 0.055 : ud.headGroup.rotation.z * 0.92;
+  }
 
   if (!dialogOpen) {
     if (inTruck) {
@@ -1193,25 +1546,41 @@ function step() {
     document.getElementById('talkBtn').style.display = 'none';
   }
 
-  /* 360° orbit camera around the player (or the truck while riding) */
-  const focusPt = inTruck
-    ? truck.position.clone().add(new THREE.Vector3(0, 2.6, 0))
-    : player.position.clone().add(new THREE.Vector3(0, 1.6, 0));
-  const dist = inTruck ? 16 : 11;
-  const cp = Math.cos(camPitch), spitch = Math.sin(camPitch);
-  camTarget.set(
-    focusPt.x + Math.cos(camYaw) * cp * dist,
-    Math.max(0.6, focusPt.y + spitch * dist),
-    focusPt.z + Math.sin(camYaw) * cp * dist
-  );
-  camera.position.lerp(camTarget, 1 - Math.pow(0.0005, dt));
-  camera.lookAt(focusPt);
+  /* camera: close-up on the animal's face during a chat, otherwise 360° orbit */
+  if (dialogOpen && dialogAnimal) {
+    const g = dialogAnimal.group;
+    (g.userData.headGroup || g).getWorldPosition(headWorld);
+    backDir.set(player.position.x - g.position.x, 0, player.position.z - g.position.z);
+    if (backDir.lengthSq() < 0.05) backDir.set(1, 0, 0);
+    backDir.normalize();
+    const d = Math.max(3.5, dialogAnimal.radius * 0.85);
+    camTarget.set(headWorld.x + backDir.x * d, Math.max(1.3, headWorld.y + 0.5), headWorld.z + backDir.z * d);
+    camera.position.lerp(camTarget, 1 - Math.pow(0.0005, dt));
+    camera.lookAt(headWorld.x, headWorld.y - d * 0.22, headWorld.z);
+  } else {
+    /* 360° orbit camera around the player (or the truck while riding) */
+    const focusPt = inTruck
+      ? truck.position.clone().add(new THREE.Vector3(0, 2.6, 0))
+      : player.position.clone().add(new THREE.Vector3(0, 1.6, 0));
+    const dist = inTruck ? 16 : 11;
+    const cp = Math.cos(camPitch), spitch = Math.sin(camPitch);
+    camTarget.set(
+      focusPt.x + Math.cos(camYaw) * cp * dist,
+      Math.max(0.6, focusPt.y + spitch * dist),
+      focusPt.z + Math.sin(camYaw) * cp * dist
+    );
+    camera.position.lerp(camTarget, 1 - Math.pow(0.0005, dt));
+    camera.lookAt(focusPt);
+  }
 
   renderer.render(scene, camera);
 }
 animate();
 
-window.__safari = { player, truck, stopData, interactables, step, clock, look: (y, p) => { camYaw = y; camPitch = p; } };
+window.__safari = { player, truck, stopData, interactables, step, clock,
+  look: (y, p) => { camYaw = y; camPitch = p; },
+  setSpeaking: v => speakingNow = v,
+  get dialogAnimal() { return dialogAnimal; } };
 </script>
 </body>
 </html>
