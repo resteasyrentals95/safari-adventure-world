@@ -160,3 +160,5 @@ const ANIMALS = {
     ],
   },
 };
+
+if (typeof module !== 'undefined') module.exports = ANIMALS;

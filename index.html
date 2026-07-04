@@ -127,7 +127,7 @@
     Walk right up to any animal and <b>talk to it</b> — every animal answers your questions
     with real wild facts! Or hop in the <b>safari truck</b> and let it drive you on a tour
     from animal to animal.<br><br>
-    <b>Arrow keys / WASD</b> to walk &bull; <b>E</b> to talk or hop in the truck &bull; <b>N</b> for the truck's next stop
+    <b>Arrow keys / WASD</b> to walk &bull; <b>Drag</b> to look all around — even up at the sky! &bull; <b>E</b> to talk or hop in the truck &bull; <b>N</b> for the truck's next stop
   </p>
   <button id="startBtn">&#x1F699; Start the Safari!</button>
 </div>
@@ -138,7 +138,7 @@
 </div>
 
 <div id="prompt"></div>
-<div id="keysHelp" style="display:none">Arrow keys / WASD to move &bull; E to talk or use the truck &bull; N = next safari stop</div>
+<div id="keysHelp" style="display:none">Arrow keys / WASD to move &bull; Drag to look around &bull; E to talk or use the truck &bull; N = next safari stop</div>
 
 <div id="truckPanel">
   <span class="stopName" id="stopName"></span>
@@ -727,6 +727,29 @@ for (let i = 0; i < 7; i++) {
   cloud.position.set(rnd(-140, 140), rnd(45, 70), rnd(-140, 140));
   scene.add(cloud);
 }
+/* the sun — look up and find it! */
+const sunBall = sph(9, new THREE.MeshBasicMaterial({ color: 0xffdd55 }), 16, 14);
+sunBall.position.set(120, 150, 80);
+scene.add(sunBall);
+/* birds circling high in the sky */
+for (let i = 0; i < 5; i++) {
+  const bird = new THREE.Group();
+  const bm = new THREE.MeshBasicMaterial({ color: 0x333333 });
+  const wingL = box(1.4, 0.06, 0.3, bm), wingR = box(1.4, 0.06, 0.3, bm);
+  wingL.position.x = -0.7; wingL.rotation.z = 0.35;
+  wingR.position.x = 0.7; wingR.rotation.z = -0.35;
+  bird.add(wingL, wingR);
+  scene.add(bird);
+  const ca = rnd(0, Math.PI * 2), cr = rnd(25, 70), ch = rnd(28, 46), cs = rnd(0.12, 0.25);
+  const cx = rnd(-40, 40), cz = rnd(-40, 40);
+  animators.push(tt => {
+    const a = ca + tt * cs;
+    bird.position.set(cx + Math.cos(a) * cr, ch + Math.sin(tt * 1.7 + ca) * 1.5, cz + Math.sin(a) * cr);
+    bird.rotation.y = -a - Math.PI / 2;
+    wingL.rotation.z = 0.35 + Math.sin(tt * 6 + ca) * 0.4;
+    wingR.rotation.z = -0.35 - Math.sin(tt * 6 + ca) * 0.4;
+  });
+}
 
 /* monkey's tree + extra herd members for zebra & wildebeest */
 const monkeyIt = interactables.find(i => i.key === 'monkey');
@@ -875,6 +898,24 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => keys[e.code] = false);
 
+/* 360° free-look camera: drag anywhere on the world to look around */
+let camYaw = Math.PI / 2;   // camera starts behind the player (+z)
+let camPitch = 0.42;        // slightly above, looking down
+let dragging = false, lastPX = 0, lastPY = 0;
+renderer.domElement.addEventListener('pointerdown', e => {
+  dragging = true; lastPX = e.clientX; lastPY = e.clientY;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  camYaw += (e.clientX - lastPX) * 0.006;
+  camPitch += (e.clientY - lastPY) * 0.005;
+  camPitch = THREE.MathUtils.clamp(camPitch, -0.5, 1.35);
+  lastPX = e.clientX; lastPY = e.clientY;
+});
+renderer.domElement.addEventListener('pointerup', () => dragging = false);
+renderer.domElement.addEventListener('pointercancel', () => dragging = false);
+
 const isTouch = 'ontouchstart' in window;
 if (isTouch) {
   document.getElementById('touchPad').style.display = 'block';
@@ -951,8 +992,7 @@ function loadVoices() {
 }
 if (synth) { loadVoices(); synth.onvoiceschanged = loadVoices; }
 
-function speak(text, profile) {
-  stopSpeaking();
+function speakTTS(text, profile) {
   if (!synth || !voicesEnabled || !profile) return;
   const parts = text.match(/[^.!?]+[.!?'"’”]*/g) || [text];
   const pool = voicePools[profile.gender] || [];
@@ -971,7 +1011,25 @@ function speak(text, profile) {
     synth.speak(u);
   });
 }
+/* Natural pre-recorded animal voices (audio/ folder), with TTS fallback */
+let currentAudio = null;
+function speak(clip, text, profile) {
+  stopSpeaking();
+  if (!voicesEnabled) return;
+  const emojiEl = document.getElementById('dialogEmoji');
+  const a = new Audio('audio/' + clip + '.mp3');
+  currentAudio = a;
+  a.onplay = () => emojiEl.classList.add('speaking');
+  a.onended = () => emojiEl.classList.remove('speaking');
+  a.onerror = () => { emojiEl.classList.remove('speaking'); speakTTS(text, profile); };
+  a.play().catch(() => speakTTS(text, profile));
+}
 function stopSpeaking() {
+  if (currentAudio) {
+    currentAudio.onended = currentAudio.onerror = null;
+    currentAudio.pause();
+    currentAudio = null;
+  }
   if (synth) synth.cancel();
   document.getElementById('dialogEmoji').classList.remove('speaking');
 }
@@ -1002,7 +1060,7 @@ function openDialog(it) {
   factEl.style.display = 'none';
   const qWrap = document.getElementById('dialogQuestions');
   qWrap.innerHTML = '';
-  d.questions.forEach(item => {
+  d.questions.forEach((item, idx) => {
     const b = document.createElement('button');
     b.textContent = item.q;
     b.addEventListener('click', () => {
@@ -1010,12 +1068,12 @@ function openDialog(it) {
       factEl.textContent = '\u{1F33F} Ranger Note: ' + item.r;
       factEl.style.display = 'block';
       b.classList.add('asked');
-      speak(item.a, d.voice);
+      speak(it.key + '_' + idx, item.a, d.voice);
     });
     qWrap.appendChild(b);
   });
   dialogEl.style.display = 'flex';
-  speak(d.greeting, d.voice);
+  speak(it.key + '_g', d.greeting, d.voice);
 }
 function closeDialog() {
   dialogOpen = false;
@@ -1072,23 +1130,27 @@ function step() {
         }
       }
     } else {
-      /* walking */
+      /* walking — relative to where the camera looks */
       let mx = 0, mz = 0;
       if (keys.ArrowUp || keys.KeyW) mz -= 1;
       if (keys.ArrowDown || keys.KeyS) mz += 1;
       if (keys.ArrowLeft || keys.KeyA) mx -= 1;
       if (keys.ArrowRight || keys.KeyD) mx += 1;
       if (mx || mz) {
-        const len = Math.hypot(mx, mz);
+        const fwdX = -Math.cos(camYaw), fwdZ = -Math.sin(camYaw);   // away from camera
+        const rightX = -fwdZ, rightZ = fwdX;
+        let dx = fwdX * -mz + rightX * mx;
+        let dz = fwdZ * -mz + rightZ * mx;
+        const len = Math.hypot(dx, dz);
         const speed = 8.5;
-        player.position.x += (mx / len) * speed * dt;
-        player.position.z += (mz / len) * speed * dt;
+        player.position.x += (dx / len) * speed * dt;
+        player.position.z += (dz / len) * speed * dt;
         const r = Math.hypot(player.position.x, player.position.z);
         if (r > 195) {
           player.position.x *= 195 / r;
           player.position.z *= 195 / r;
         }
-        playerAngle = Math.atan2(-(mz / len), mx / len);
+        playerAngle = Math.atan2(-(dz / len), dx / len);
         player.rotation.y = playerAngle;
         player.position.y = Math.abs(Math.sin(t * 10)) * 0.12;
       } else {
@@ -1131,21 +1193,25 @@ function step() {
     document.getElementById('talkBtn').style.display = 'none';
   }
 
-  /* camera follows player or truck */
-  if (inTruck) {
-    const back = new THREE.Vector3(-Math.cos(truck.rotation.y), 0, Math.sin(truck.rotation.y));
-    camTarget.copy(truck.position).addScaledVector(back, 13).add(new THREE.Vector3(0, 8.5, 0));
-  } else {
-    camTarget.set(player.position.x, player.position.y + 7.5, player.position.z + 12);
-  }
-  camera.position.lerp(camTarget, 1 - Math.pow(0.001, dt));
-  camera.lookAt(inTruck ? truck.position.clone().add(new THREE.Vector3(0, 2, 0)) : player.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
+  /* 360° orbit camera around the player (or the truck while riding) */
+  const focusPt = inTruck
+    ? truck.position.clone().add(new THREE.Vector3(0, 2.6, 0))
+    : player.position.clone().add(new THREE.Vector3(0, 1.6, 0));
+  const dist = inTruck ? 16 : 11;
+  const cp = Math.cos(camPitch), spitch = Math.sin(camPitch);
+  camTarget.set(
+    focusPt.x + Math.cos(camYaw) * cp * dist,
+    Math.max(0.6, focusPt.y + spitch * dist),
+    focusPt.z + Math.sin(camYaw) * cp * dist
+  );
+  camera.position.lerp(camTarget, 1 - Math.pow(0.0005, dt));
+  camera.lookAt(focusPt);
 
   renderer.render(scene, camera);
 }
 animate();
 
-window.__safari = { player, truck, stopData, interactables, step, clock };
+window.__safari = { player, truck, stopData, interactables, step, clock, look: (y, p) => { camYaw = y; camPitch = p; } };
 </script>
 </body>
 </html>
